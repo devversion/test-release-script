@@ -32,8 +32,8 @@ export class CutReleaseCandidateAction extends ReleaseAction {
     this._git.run(['checkout', 'FETCH_HEAD', '--detach']);
 
     this._updateProjectVersion(newVersion);
-    this._generateChangelogForNewVersion(newVersion);
-    this._waitForChangelogEditsAndCreateReleaseCommit(newVersion);
+    await this._generateChangelogForNewVersion(newVersion);
+    await this._waitForChangelogEditsAndCreateReleaseCommit(newVersion);
    // this._pushCurrentBranchUpstream(`release-stage-${newVersion}`);
     console.error(await this._getForkOfAuthenticatedUser());
 

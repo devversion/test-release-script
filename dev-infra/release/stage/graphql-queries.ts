@@ -14,9 +14,9 @@ import {params, types} from 'typed-graphqlify';
  */
 export const findOwnedForksOfRepoQuery = params({
   $owner: 'String!',
-  $repo: 'String!',
+  $name: 'String!',
 }, {
-  repository: params({owner: '$owner', name: '$repo'}, {
+  repository: params({owner: '$owner', name: '$name'}, {
     forks: params({affiliations: 'OWNER', first: 1}, {
       nodes: [{
         owner: {
