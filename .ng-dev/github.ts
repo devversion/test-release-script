@@ -7,5 +7,5 @@ import {GithubConfig} from '../dev-infra/utils/config';
 
 export const github: GithubConfig = {
   owner: 'RevokedIO',
-  name: 'angular'
+  name: 'test-release-script'
 };

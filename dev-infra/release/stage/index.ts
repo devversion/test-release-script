@@ -6,15 +6,20 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {green, info, log, yellow} from '../../utils/console';
+import {error, green, info, log, red, yellow} from '../../utils/console';
 import {ActiveReleaseTrains, BaseReleaseTask} from '../base-release-task';
 import {ListChoiceOptions, prompt} from 'inquirer';
 import {ReleaseAction} from './actions';
 import {actions} from './actions/index';
-import {GitCommandError} from '../../utils/git/index';
+import {FatalReleaseActionError, UserAbortedReleaseActionError} from './actions-error';
 
 export class StageReleaseTask extends BaseReleaseTask {
-  async run() {
+
+  /**
+   * Runs the release staging script.
+   * @returns An exit code indicating success or failure.
+   */
+  async run(): Promise<number> {
     log();
     log(yellow('--------------------------------------------'));
     log(yellow('  Angular Dev-Infra release staging script'));
@@ -34,12 +39,24 @@ export class StageReleaseTask extends BaseReleaseTask {
     try {
       await action.perform();
     } catch (e) {
-      throw e;
+      if (e instanceof UserAbortedReleaseActionError) {
+        info(yellow('Release action has been manually aborted.'));
+        return 0;
+      }
+      error(red('Release action has been aborted due to fatal errors.'));
+      // Only print the error message and stack if the error is not a known fatal release
+      // action error (for which we print the error gracefully to the console with colors).
+      if (!(e instanceof FatalReleaseActionError) && e instanceof Error) {
+        console.error(e.message);
+        console.error(e.stack);
+      }
+      return 1;
     } finally {
       this.git.checkout(previousGitBranchOrRevision, true);
     }
 
     info(green('Successfully prepared the release!'));
+    return 0;
   }
 
   private async _promptForReleaseAction(active: ActiveReleaseTrains) {

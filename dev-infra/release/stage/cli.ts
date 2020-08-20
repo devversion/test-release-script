@@ -37,7 +37,7 @@ async function handler(args: Arguments<ReleaseStageOptions>) {
 
   const config = getConfig();
   const task = new StageReleaseTask(getReleaseConfig(config), config.github, githubToken);
-  await task.run();
+  process.exitCode = await task.run();
 }
 
 /** CLI command module for staging a release. */

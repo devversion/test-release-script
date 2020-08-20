@@ -11,15 +11,22 @@ import * as semver from 'semver';
 import {GitClient} from '../../utils/git/index';
 import {readFileSync, writeFileSync} from 'fs';
 import {join} from 'path';
-import {green, info, promptConfirm, red, error, yellow} from '../../utils/console';
+import {error, green, info, promptConfirm, red, yellow} from '../../utils/console';
 import {getListCommitsInBranchUrl} from './github-urls';
 import {ReleaseConfig} from '../config';
-import {params, types} from 'typed-graphqlify';
 import {findOwnedForksOfRepoQuery} from './graphql-queries';
+import {FatalReleaseActionError, UserAbortedReleaseActionError} from './actions-error';
 
 export abstract class ReleaseAction {
+  /** Gets the description for a release action. */
   abstract getDescription(): string;
+  /** Whether the release action is currently valid. */
   abstract isValid(): boolean;
+  /**
+   * Performs the given release action.
+   * @throws {UserAbortedReleaseActionError} When the user manually aborted the action.
+   * @throws {FatalReleaseActionError} When the action has been aborted due to a fatal error.
+   */
   abstract perform(): Promise<void>;
 
   constructor(protected _active: ActiveReleaseTrains,
@@ -56,7 +63,7 @@ export abstract class ReleaseAction {
           `forcibly ignored.`));
         return;
       }
-      process.exit(1);
+      throw new UserAbortedReleaseActionError();
     } else if (state === 'pending') {
       error(red(
         `  ✘   Commit "${commit.sha}" still has pending github statuses that ` +
@@ -68,7 +75,7 @@ export abstract class ReleaseAction {
           `forcibly ignored.`));
         return;
       }
-      process.exit(0);
+      throw new UserAbortedReleaseActionError();
     }
 
     info(green('  ✓   Upstream commit is passing all github status checks.'));
@@ -86,8 +93,7 @@ export abstract class ReleaseAction {
       `proceed to the prompt below.`));
 
     if (!await promptConfirm('Do you want to proceed and commit the changes?')) {
-      info(yellow('Aborting staging for release candidate.'));
-      process.exit(0);
+      throw new UserAbortedReleaseActionError();
     }
 
     // Stage all changes that have been made (changelog and version bump).
@@ -112,7 +118,7 @@ export abstract class ReleaseAction {
     if (forks.length === 0) {
       error(red(`  ✘   Unable to find fork for currently authenticated user.`));
       error(red(`      Please ensure you created a fork of: ${owner}/${name}.`));
-      process.exit(1);
+      throw new FatalReleaseActionError();
     }
 
     const fork = forks[0];
