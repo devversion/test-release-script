@@ -6,6 +6,6 @@ import {GithubConfig} from '../dev-infra/utils/config';
  */
 
 export const github: GithubConfig = {
-  owner: 'angular',
+  owner: 'RevokedIO',
   name: 'angular'
 };

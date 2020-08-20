@@ -21,7 +21,7 @@ export class StageReleaseTask extends BaseReleaseTask {
     log(yellow('--------------------------------------------'));
     log();
 
-//    this._verifyNoUncommittedChanges();
+    this._verifyNoUncommittedChanges();
 
     const releaseTrains = /* TODO await this._getActiveReleaseTrains(); */ {
       next: {branchName: 'master', version: require('semver').parse('10.2.0-next.0')},
