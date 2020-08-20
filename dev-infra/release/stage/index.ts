@@ -13,13 +13,16 @@ import {ReleaseAction} from './actions';
 import {actions} from './actions/index';
 import {FatalReleaseActionError, UserAbortedReleaseActionError} from './actions-error';
 
+export enum StageReleaseStatus {
+  SUCCESS,
+  FATAL_ERROR,
+  MANUALLY_ABORTED,
+}
+
 export class StageReleaseTask extends BaseReleaseTask {
 
-  /**
-   * Runs the release staging script.
-   * @returns An exit code indicating success or failure.
-   */
-  async run(): Promise<number> {
+  /** Runs the release staging script. */
+  async run(): Promise<StageReleaseStatus> {
     log();
     log(yellow('--------------------------------------------'));
     log(yellow('  Angular Dev-Infra release staging script'));
@@ -40,23 +43,20 @@ export class StageReleaseTask extends BaseReleaseTask {
       await action.perform();
     } catch (e) {
       if (e instanceof UserAbortedReleaseActionError) {
-        info(yellow('Release action has been manually aborted.'));
-        return 0;
+        return StageReleaseStatus.MANUALLY_ABORTED;
       }
-      error(red('Release action has been aborted due to fatal errors.'));
       // Only print the error message and stack if the error is not a known fatal release
       // action error (for which we print the error gracefully to the console with colors).
       if (!(e instanceof FatalReleaseActionError) && e instanceof Error) {
         console.error(e.message);
         console.error(e.stack);
       }
-      return 1;
+      return StageReleaseStatus.FATAL_ERROR;
     } finally {
       this.git.checkout(previousGitBranchOrRevision, true);
     }
 
-    info(green('Successfully prepared the release!'));
-    return 0;
+    return StageReleaseStatus.SUCCESS;
   }
 
   private async _promptForReleaseAction(active: ActiveReleaseTrains) {

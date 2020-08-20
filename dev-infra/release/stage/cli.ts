@@ -7,9 +7,9 @@
  */
 
 import {Arguments, Argv, CommandModule} from 'yargs';
-import {error} from '../../utils/console';
+import {error, green, info, red, yellow} from '../../utils/console';
 import {GITHUB_TOKEN_GENERATE_URL} from '../../pr/checkout/cli';
-import {StageReleaseTask} from './index';
+import {StageReleaseStatus, StageReleaseTask} from './index';
 import {getReleaseConfig} from '../config';
 import {getConfig} from '../../utils/config';
 
@@ -37,7 +37,20 @@ async function handler(args: Arguments<ReleaseStageOptions>) {
 
   const config = getConfig();
   const task = new StageReleaseTask(getReleaseConfig(config), config.github, githubToken);
-  process.exitCode = await task.run();
+  const result = await task.run();
+
+  switch (result) {
+    case StageReleaseStatus.FATAL_ERROR:
+      error(red(`Release action has been aborted due to fatal errors. See above.`));
+      process.exitCode = 1;
+      break;
+    case StageReleaseStatus.MANUALLY_ABORTED:
+      info(yellow(`Release action has been manually aborted.`));
+      break;
+    case StageReleaseStatus.SUCCESS:
+      info(green(`Release action has completed successfully.`));
+      break;
+  }
 }
 
 /** CLI command module for staging a release. */
