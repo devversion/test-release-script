@@ -6,11 +6,12 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {info, log, yellow} from '../../utils/console';
+import {green, info, log, yellow} from '../../utils/console';
 import {ActiveReleaseTrains, BaseReleaseTask} from '../base-release-task';
 import {ListChoiceOptions, prompt} from 'inquirer';
 import {ReleaseAction} from './actions';
 import {actions} from './actions/index';
+import {GitCommandError} from '../../utils/git/index';
 
 export class StageReleaseTask extends BaseReleaseTask {
   async run() {
@@ -22,10 +23,23 @@ export class StageReleaseTask extends BaseReleaseTask {
 
 //    this._verifyNoUncommittedChanges();
 
-    const releaseTrains = await this._getActiveReleaseTrains();
+    const releaseTrains = /* TODO await this._getActiveReleaseTrains(); */ {
+      next: {branchName: 'master', version: require('semver').parse('10.2.0-next.0')},
+      latest: {branchName: '10.0.x', version: require('semver').parse('10.0.2')},
+      releaseCandidate: {branchName: '10.1.x', version: require('semver').parse('10.1.0-next.0')}
+    };
     const action = await this._promptForReleaseAction(releaseTrains);
+    const previousGitBranchOrRevision = this.git.getCurrentBranchOrRevision();
 
-    await action.perform();
+    try {
+      await action.perform();
+    } catch (e) {
+      throw e;
+    } finally {
+      this.git.checkout(previousGitBranchOrRevision, true);
+    }
+
+    info(green('Successfully prepared the release!'));
   }
 
   private async _promptForReleaseAction(active: ActiveReleaseTrains) {

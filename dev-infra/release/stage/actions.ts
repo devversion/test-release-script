@@ -14,6 +14,8 @@ import {join} from 'path';
 import {green, info, promptConfirm, red, error, yellow} from '../../utils/console';
 import {getListCommitsInBranchUrl} from './github-urls';
 import {ReleaseConfig} from '../config';
+import {params, types} from 'typed-graphqlify';
+import {findOwnedForksOfRepoQuery} from './graphql-queries';
 
 export abstract class ReleaseAction {
   abstract getDescription(): string;
@@ -75,5 +77,45 @@ export abstract class ReleaseAction {
   protected async _generateChangelogForNewVersion(version: semver.SemVer) {
     // TODO: Actual generation needs to be implemented.
     info(green(`  ✓   Updated the changelog to capture changes in "${version}".`));
+  }
+
+  protected async _waitForChangelogEditsAndCreateReleaseCommit(newVersion: semver.SemVer) {
+    info(yellow(
+      `  ⚠   Please review the changelog and ensure that the log contains only changes ` +
+      `that apply to the public API surface. Manual changes can be made. When done, please ` +
+      `proceed to the prompt below.`));
+
+    if (!await promptConfirm('Do you want to proceed and commit the changes?')) {
+      info(yellow('Aborting staging for release candidate.'));
+      process.exit(0);
+    }
+
+    // Stage all changes that have been made (changelog and version bump).
+    this._git.run(['add', '-A']);
+    // Create a release staging commit including changelog and version bump.
+    this._git.run(['commit', '--no-verify', '-m',
+      this._config.releaseCommitMessage(newVersion)]);
+
+    info();
+    info(green(`  ✓   Created release commit for: "${newVersion}".`));
+  }
+
+  /**
+   * Gets an owned fork for the configured project of the authenticated user.
+   * Aborts the process with an error if no fork could be found.
+   */
+  protected async _getForkOfAuthenticatedUser(): Promise<{owner: string, name: string}> {
+    const {owner, name} = this._git.remoteConfig;
+    const result = await this._git.github.graphql.query(findOwnedForksOfRepoQuery, {owner, name});
+    const forks = result.repository.forks.nodes;
+
+    if (forks.length === 0) {
+      error(red(`  ✘   Unable to find fork for currently authenticated user.`));
+      error(red(`      Please ensure you created a fork of: ${owner}/${name}.`));
+      process.exit(1);
+    }
+
+    const fork = forks[0];
+    return {owner: fork.owner.login, name: fork.name};
   }
 }

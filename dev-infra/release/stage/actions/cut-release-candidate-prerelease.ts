@@ -13,7 +13,7 @@ export class CutPrereleaseForReleaseCandidateAction extends ReleaseAction {
     const branchName = this._active.releaseCandidate!.branchName;
     const currentPhase = this._active.releaseCandidate!.version.prerelease[0] === 'next' ?
       'feature-freeze' : 'release-candidate';
-    return `Cut a new pre-release for the "${currentPhase}" branch (${branchName}).`;
+    return `Cut a new next pre-release for the "${currentPhase}" branch (${branchName}).`;
   }
 
   isValid(): boolean {

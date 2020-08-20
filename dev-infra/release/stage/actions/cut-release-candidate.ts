@@ -8,7 +8,6 @@
 
 import * as semver from 'semver';
 import {ReleaseAction} from '../actions';
-import {green, info, promptConfirm, yellow} from '../../../utils/console';
 
 export class CutReleaseCandidateAction extends ReleaseAction {
   getDescription() {
@@ -34,25 +33,10 @@ export class CutReleaseCandidateAction extends ReleaseAction {
 
     this._updateProjectVersion(newVersion);
     this._generateChangelogForNewVersion(newVersion);
+    this._waitForChangelogEditsAndCreateReleaseCommit(newVersion);
+   // this._pushCurrentBranchUpstream(`release-stage-${newVersion}`);
+    console.error(await this._getForkOfAuthenticatedUser());
 
-    info(yellow(
-      `  ⚠   Please review the changelog and ensure that the log contains only changes ` +
-      `that apply to the public API surface. Manual changes can be made. When done, please ` +
-      `proceed to the prompt below.`));
-
-    if (!await promptConfirm('Do you want to proceed and commit the changes?')) {
-      info(yellow('Aborting staging for release candidate.'));
-      process.exit(0);
-    }
-
-    // Stage all changes that have been made (changelog and version bump).
-    this._git.run(['add', '-A']);
-    // Create a release staging commit including changelog and version bump.
-    this._git.run(['commit', '--no-verify', '-m',
-      this._config.releaseCommitMessage(newVersion)]);
-
-    info();
-    info(green(`  ✓   Created release commit for: "${newVersion}".`));
-    info(green(`  ✓   Please push the changes and submit a PR on GitHub.`));
+  //  this._git.github.getCurrentUser();
   }
 }
