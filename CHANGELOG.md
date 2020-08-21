@@ -2,6 +2,11 @@
 # 10.1.0-rc.0 (2020-08-21)
 
 
+
+<a name="10.1.0-rc.0"></a>
+# 10.1.0-rc.0 (2020-08-21)
+
+
 ### Bug Fixes
 
 * **router:** ensure routerLinkActive updates when associated routerLinks change ([#38511](https://github.com/angular/angular/issues/38511)) ([dbfb50e](https://github.com/angular/angular/commit/dbfb50e)), closes [#18469](https://github.com/angular/angular/issues/18469)
