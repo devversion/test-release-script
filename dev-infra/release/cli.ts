@@ -6,12 +6,19 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import * as yargs from 'yargs';
-import {buildEnvStamp} from './env-stamp';
+
+import {ReleasePublishCommandModule} from './publish/cli';
+import {buildEnvStamp} from './stamping/env-stamp';
 
 /** Build the parser for the release commands. */
 export function buildReleaseParser(localYargs: yargs.Argv) {
-  return localYargs.help().strict().demandCommand().command(
-      'build-env-stamp', 'Build the environment stamping information', {}, () => buildEnvStamp());
+  return localYargs.help()
+      .strict()
+      .demandCommand()
+      .command(ReleasePublishCommandModule)
+      .command(
+          'build-env-stamp', 'Build the environment stamping information', {},
+          () => buildEnvStamp());
 }
 
 if (require.main === module) {
