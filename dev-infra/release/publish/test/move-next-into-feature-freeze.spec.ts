@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {MoveNextIntoFeatureFreezeAction} from '../actions/move-next-into-feature-freeze';
 import * as npm from '../npm-publish';
 
@@ -39,15 +40,32 @@ describe('move next into feature-freeze action', () => {
   });
 
   it('should create pull requests and feature-freeze branch', async () => {
-    const {repo, fork, instance, gitClient, releaseConfig} =
-        setupReleaseActionForTesting(MoveNextIntoFeatureFreezeAction, {
+    await expectVersionAndBranchToBeCreated(
+        {
           releaseCandidate: null,
           next: {branchName: 'master', version: parse('10.2.0-next.0')},
           latest: {branchName: '10.0.x', version: parse('10.0.3')},
-        });
+        },
+        /* isNextPublishedToNpm */ true, '10.3.0-next.0', '10.2.0-next.1', '10.2.x');
+  });
 
-    const expectedNextVersion = `10.3.0-next.0`;
-    const expectedVersion = '10.2.0-next.1';
+  it('should not increment the version if "next" version is not yet published', async () => {
+    await expectVersionAndBranchToBeCreated(
+        {
+          releaseCandidate: null,
+          next: {branchName: 'master', version: parse('10.2.0-next.0')},
+          latest: {branchName: '10.0.x', version: parse('10.0.3')},
+        },
+        /* isNextPublishedToNpm */ false, '10.3.0-next.0', '10.2.0-next.0', '10.2.x');
+  });
+
+  /** Performs the action and expects versions and branches to be determined properly. */
+  async function expectVersionAndBranchToBeCreated(
+      active: ActiveReleaseTrains, isNextPublishedToNpm: boolean, expectedNextVersion: string,
+      expectedVersion: string, expectedNewBranch: string) {
+    const {repo, fork, instance, gitClient, releaseConfig} =
+        setupReleaseActionForTesting(MoveNextIntoFeatureFreezeAction, active, isNextPublishedToNpm);
+
     const expectedNextUpdateBranch = `next-release-train-${expectedNextVersion}`;
     const expectedStagingForkBranch = `release-stage-${expectedVersion}`;
     const expectedTagName = expectedVersion;
@@ -57,14 +75,14 @@ describe('move next into feature-freeze action', () => {
     repo.expectBranchRequest('master', 'MASTER_COMMIT_SHA')
         .expectCommitStatusCheck('MASTER_COMMIT_SHA', 'success')
         .expectFindForkRequest(fork)
-        .expectPullRequestToBeCreated('10.2.x', fork, expectedStagingForkBranch, 200)
+        .expectPullRequestToBeCreated(expectedNewBranch, fork, expectedStagingForkBranch, 200)
         .expectPullRequestWait(200)
-        .expectBranchRequest('10.2.x', 'STAGING_COMMIT_SHA')
+        .expectBranchRequest(expectedNewBranch, 'STAGING_COMMIT_SHA')
         .expectCommitRequest(
             'STAGING_COMMIT_SHA', `release: cut the v${expectedVersion} release\n\nPR Close #200.`)
         .expectTagToBeCreated(expectedTagName, 'STAGING_COMMIT_SHA')
         .expectReleaseToBeCreated(`v${expectedVersion}`, expectedTagName)
-        .expectChangelogFetch('10.2.x', getChangelogForVersion(expectedVersion))
+        .expectChangelogFetch(expectedNewBranch, getChangelogForVersion(expectedVersion))
         .expectPullRequestToBeCreated('master', fork, expectedNextUpdateBranch, 100);
 
     // In the fork, we make the following branches appear as non-existent,
@@ -81,7 +99,7 @@ describe('move next into feature-freeze action', () => {
               baseRepo: repo,
               baseBranch: 'master',
               targetRepo: repo,
-              targetBranch: '10.2.x',
+              targetBranch: expectedNewBranch,
               expectedCommits: [],
             }),
             'Expected feature-freeze branch to be created upstream and based on "master".');
@@ -108,11 +126,11 @@ describe('move next into feature-freeze action', () => {
               targetRepo: fork,
               expectedCommits: [
                 {
-                  message: `release: bump the next branch to v10.3.0-next.0`,
+                  message: `release: bump the next branch to v${expectedNextVersion}`,
                   files: ['package.json']
                 },
                 {
-                  message: `docs: release notes for the v10.2.0-next.1 release`,
+                  message: `docs: release notes for the v${expectedVersion} release`,
                   files: ['CHANGELOG.md']
                 },
               ],

@@ -9,11 +9,11 @@
 import * as semver from 'semver';
 
 import {error, green, info, yellow} from '../../../utils/console';
+import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {ReleaseAction} from '../actions';
 import {getCommitMessageForExceptionalNextVersionBump} from '../commit-message';
 import {packageJsonPath} from '../constants';
-import {semverInc} from '../inc-semver';
-import {ActiveReleaseTrains} from '../index';
+import {computeNewVersionForNext} from './cut-next-prerelease';
 
 /**
  * Release action that moves the next release-train into the feature-freeze phase. This means
@@ -21,48 +21,50 @@ import {ActiveReleaseTrains} from '../index';
  * cut indicating the started feature-freeze.
  */
 export class MoveNextIntoFeatureFreezeAction extends ReleaseAction {
-  private _newVersion = semverInc(this.active.next.version, 'prerelease');
-  private _newBranch = `${this._newVersion.major}.${this._newVersion.minor}.x`;
+  private _newVersion = computeNewVersionForNext(this.active, this.config);
 
   async getDescription() {
     const {branchName} = this.active.next;
-    const newVersion = this._newVersion;
+    const newVersion = await this._newVersion;
     return `Move the "${branchName}" branch into feature-freeze phase (v${newVersion}).`;
   }
 
   async perform() {
+    const newVersion = await this._newVersion;
+    const newBranch = `${newVersion.major}.${newVersion.minor}.x`;
+
     // Branch-off the next branch into a feature-freeze branch.
-    await this._createNewVersionBranchFromNext();
+    await this._createNewVersionBranchFromNext(newBranch);
 
     // Stage the new version for the newly created branch, and push changes to a
     // fork in order to create a staging pull request. Note that we re-use the newly
     // created branch instead of re-fetching from the upstream.
     const stagingPullRequest =
-        await this.stageVersionForBranchAndCreatePullRequest(this._newVersion, this._newBranch);
+        await this.stageVersionForBranchAndCreatePullRequest(newVersion, newBranch);
 
     // Wait for the staging PR to be merged. Then build and publish the feature-freeze next
-    // release and cherry-pick the release notes into the next branch in combination with
-    // bump ing the version to the next minor too.
+    // pre-release. Finally, cherry-pick the release notes into the next branch in combination
+    // with bumping the version to the next minor too.
     await this.waitForPullRequestToBeMerged(stagingPullRequest.id);
-    await this.buildAndPublish(this._newVersion, this._newBranch, 'next');
-    await this._createNextBranchUpdatePullRequest();
+    await this.buildAndPublish(newVersion, newBranch, 'next');
+    await this._createNextBranchUpdatePullRequest(newVersion, newBranch);
   }
 
   /** Creates a new version branch from the next branch. */
-  private async _createNewVersionBranchFromNext() {
+  private async _createNewVersionBranchFromNext(newBranch: string) {
     const {branchName: nextBranch} = this.active.next;
     await this.verifyPassingGithubStatus(nextBranch);
     await this.checkoutUpstreamBranch(nextBranch);
-    await this.createLocalBranchFromHead(this._newBranch);
-    await this.pushHeadToRemoteBranch(this._newBranch);
-    info(green(`  ✓   Version branch "${this._newBranch}" created.`));
+    await this.createLocalBranchFromHead(newBranch);
+    await this.pushHeadToRemoteBranch(newBranch);
+    info(green(`  ✓   Version branch "${newBranch}" created.`));
   }
 
   /**
    * Creates a pull request for the next branch that bumps the version to the next
    * minor, and cherry-picks the changelog for the newly branched-off feature-freeze version.
    */
-  private async _createNextBranchUpdatePullRequest() {
+  private async _createNextBranchUpdatePullRequest(newVersion: semver.SemVer, newBranch: string) {
     const {branchName: nextBranch, version} = this.active.next;
     // We increase the version for the next branch to the next minor. The team can decide
     // later if they want next to be a major through the `Configure Next as Major` release action.
@@ -80,13 +82,13 @@ export class MoveNextIntoFeatureFreezeAction extends ReleaseAction {
         `release-candidate phase. This PR updates the next branch to the subsequent ` +
         `release-train.`;
     const hasChangelogCherryPicked =
-        await this.createCherryPickReleaseNotesCommit(this._newVersion, this._newBranch);
+        await this.createCherryPickReleaseNotesCommitFrom(newVersion, newBranch);
 
     if (hasChangelogCherryPicked) {
       nextPullRequestMessage += `\n\nAlso this PR cherry-picks the changelog for ` +
-          `v${this._newVersion} into the ${nextBranch} branch so that the changelog is up to date.`;
+          `v${newVersion} into the ${nextBranch} branch so that the changelog is up to date.`;
     } else {
-      error(yellow(`  ✘   Could not cherry-pick release notes for v${this._newVersion}.`));
+      error(yellow(`  ✘   Could not cherry-pick release notes for v${newVersion}.`));
       error(yellow(`      Please copy the release note manually into "${nextBranch}".`));
     }
 
