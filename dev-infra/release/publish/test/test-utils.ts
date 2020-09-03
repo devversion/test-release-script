@@ -8,16 +8,16 @@
 
 import {writeFileSync} from 'fs';
 import * as nock from 'nock';
-import * as nodeFetch from 'node-fetch';
 import {join} from 'path';
 import * as semver from 'semver';
 
 import {GithubConfig} from '../../../utils/config';
 import * as console from '../../../utils/console';
 import {ReleaseConfig} from '../../config/index';
+import {_npmPackageInfoCache, NpmPackageInfo} from '../../versioning/npm-registry';
+import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {ReleaseAction, ReleaseActionConstructor} from '../actions';
 import * as constants from '../constants';
-import {ActiveReleaseTrains} from '../index';
 import * as npm from '../npm-publish';
 
 import {GithubTestingRepo} from './github-api-testing';
@@ -59,15 +59,30 @@ export function getTestingMocksForReleaseAction() {
   return {githubConfig, gitClient, releaseConfig};
 }
 
-/** Sets up the given release action for testing. */
+/**
+ * Sets up the given release action for testing.
+ * @param actionCtor Type of release action to be tested.
+ * @param active Fake active release trains for the action,
+ * @param isNextPublishedToNpm Whether the next version is published to NPM. True by default.
+ */
 export function setupReleaseActionForTesting<T extends ReleaseAction>(
-    actionCtor: ReleaseActionConstructor<T>, active: ActiveReleaseTrains): TestReleaseAction<T> {
+    actionCtor: ReleaseActionConstructor<T>, active: ActiveReleaseTrains,
+    isNextPublishedToNpm = true): TestReleaseAction<T> {
   // Reset existing HTTP interceptors.
   nock.cleanAll();
 
   const {gitClient, githubConfig, releaseConfig} = getTestingMocksForReleaseAction();
   const repo = new GithubTestingRepo(githubConfig.owner, githubConfig.name);
   const fork = new GithubTestingRepo('some-user', 'fork');
+
+  // The version for the release-train in the next phase does not necessarily need to be
+  // published to NPM. We mock the NPM package request and fake the state of the next
+  // version based on the `isNextPublishedToNpm` testing parameter. More details on the
+  // special case for the next release train can be found in the next pre-release action.
+  fakeNpmPackageQueryRequest(
+      releaseConfig.npmPackages[0],
+      {versions: {[active.next.version.format()]: isNextPublishedToNpm ? {} : undefined}});
+
   const action = new actionCtor(active, gitClient, releaseConfig, testTmpDir);
 
   // Fake confirm any prompts. We do not want to make any changelog edits and
@@ -143,8 +158,10 @@ export async function expectStagingAndPublishWithoutCherryPick(
   expect(releaseConfig.buildPackages).toHaveBeenCalledTimes(1);
   expect(releaseConfig.generateReleaseNotesForHead).toHaveBeenCalledTimes(1);
   expect(npm.runNpmPublish).toHaveBeenCalledTimes(2);
-  expect(npm.runNpmPublish).toHaveBeenCalledWith(`${testTmpDir}/dist/pkg1`, expectedNpmDistTag);
-  expect(npm.runNpmPublish).toHaveBeenCalledWith(`${testTmpDir}/dist/pkg2`, expectedNpmDistTag);
+  expect(npm.runNpmPublish)
+      .toHaveBeenCalledWith(`${testTmpDir}/dist/pkg1`, expectedNpmDistTag, undefined);
+  expect(npm.runNpmPublish)
+      .toHaveBeenCalledWith(`${testTmpDir}/dist/pkg2`, expectedNpmDistTag, undefined);
 }
 
 export async function expectStagingAndPublishWithCherryPick(
@@ -209,15 +226,16 @@ export async function expectStagingAndPublishWithCherryPick(
   expect(releaseConfig.buildPackages).toHaveBeenCalledTimes(1);
   expect(releaseConfig.generateReleaseNotesForHead).toHaveBeenCalledTimes(1);
   expect(npm.runNpmPublish).toHaveBeenCalledTimes(2);
-  expect(npm.runNpmPublish).toHaveBeenCalledWith(`${testTmpDir}/dist/pkg1`, expectedNpmDistTag);
-  expect(npm.runNpmPublish).toHaveBeenCalledWith(`${testTmpDir}/dist/pkg2`, expectedNpmDistTag);
+  expect(npm.runNpmPublish)
+      .toHaveBeenCalledWith(`${testTmpDir}/dist/pkg1`, expectedNpmDistTag, undefined);
+  expect(npm.runNpmPublish)
+      .toHaveBeenCalledWith(`${testTmpDir}/dist/pkg2`, expectedNpmDistTag, undefined);
 }
 
-/** Fakes a NPM package query API request. */
-export function fakeNpmPackageQueryRequest(data: unknown) {
-  // Note: We only need to mock the `json` function for a `Response`. Types
-  // would expect us to mock more functions, so we need to cast to `any`.
-  spyOn(nodeFetch, 'default').and.resolveTo({json: async () => data} as any);
+/** Fakes a NPM package query API request for the given package. */
+export function fakeNpmPackageQueryRequest(pkgName: string, data: Partial<NpmPackageInfo>) {
+  _npmPackageInfoCache[pkgName] =
+      Promise.resolve({'dist-tags': {}, versions: {}, time: {}, ...data});
 }
 
 /** Gets a jasmine asymmetric matcher for matching a given SemVer version. */

@@ -18,14 +18,11 @@ import {CompletionState, ReleaseTool} from './index';
 /** Command line options for publishing a release. */
 export interface ReleasePublishOptions {
   githubToken: string;
-  continue: boolean|undefined;
 }
 
-/** Yargs command builder for configuring the `ng-dev release` command. */
+/** Yargs command builder for configuring the `ng-dev release publish` command. */
 function builder(argv: Argv): Argv<ReleasePublishOptions> {
-  return addGithubTokenOption(argv).option(
-      'continue',
-      {type: 'boolean', description: 'Whether a previously aborted publish should be continued.'});
+  return addGithubTokenOption(argv);
 }
 
 /** Yargs command handler for staging a release. */

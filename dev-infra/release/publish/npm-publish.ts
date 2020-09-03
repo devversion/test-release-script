@@ -14,13 +14,14 @@ import * as semver from 'semver';
  * of the NPM publish command is printed to the current console.
  * @returns A boolean indicating success or failures.
  */
-export function runNpmPublish(packagePath: string, distTag: string): boolean {
-  const result = spawnSync('npm', ['publish', '--access', 'public', '--tag', distTag], {
-    cwd: packagePath,
-    shell: true,
-    stdio: 'inherit',
-  });
-  return result.status === 0;
+export function runNpmPublish(
+    packagePath: string, distTag: string, registryUrl: string|undefined): boolean {
+  const args = ['publish', '--access', 'public', '--tag', distTag];
+  // If a custom registry URL has been specified, add the `--registry` flag.
+  if (registryUrl !== undefined) {
+    args.push('--registry', registryUrl);
+  }
+  return spawnSync('npm', args, {cwd: packagePath, shell: true, stdio: 'inherit'}).status === 0;
 }
 
 /**
@@ -28,10 +29,11 @@ export function runNpmPublish(packagePath: string, distTag: string): boolean {
  * output of the NPM command is printed to the current console.
  * @returns A boolean indicating success or failures.
  */
-export function setNpmTagForPackage(packageName: string, distTag: string, version: semver.SemVer) {
-  const result = spawnSync('npm', ['dist-tag', 'add', `${packageName}:${version}`, distTag], {
-    shell: true,
-    stdio: 'inherit',
-  });
-  return result.status === 0;
+export function setNpmTagForPackage(
+    packageName: string, distTag: string, version: semver.SemVer, registryUrl: string|undefined) {
+  const args = ['dist-tag', 'add', `${packageName}@${version}`, distTag];
+  if (registryUrl !== undefined) {
+    args.push('--registry', registryUrl);
+  }
+  return spawnSync('npm', args, {shell: true, stdio: 'inherit'}).status === 0;
 }

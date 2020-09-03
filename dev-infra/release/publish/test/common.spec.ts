@@ -10,11 +10,11 @@ import {readFileSync} from 'fs';
 import {join} from 'path';
 import * as semver from 'semver';
 
+import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {ReleaseAction} from '../actions';
-import {CutStableAction} from '../actions/cut-stable';
 import {actions} from '../actions/index';
 import {changelogPath} from '../constants';
-import {ActiveReleaseTrains} from '../index';
+import * as npm from '../npm-publish';
 
 import {getChangelogForVersion, getTestingMocksForReleaseAction, parse, setupReleaseActionForTesting, testTmpDir} from './test-utils';
 import {getBranchPushMatcher} from './virtual-git-matchers';
@@ -73,9 +73,35 @@ describe('common release action logic', () => {
       await expectAsync(instance.testBuildAndPublish(version, branchName, 'latest'))
           .toBeRejectedWithError();
 
+      expect(console.error).toHaveBeenCalledTimes(2);
       expect(console.error)
-          .toHaveBeenCalledWith(
-              jasmine.stringMatching(`Could not find release output for "@angular/non-existent".`));
+          .toHaveBeenCalledWith(jasmine.stringMatching(
+              `Release output has not been built for the following packages:`));
+      expect(console.error).toHaveBeenCalledWith(jasmine.stringMatching(`- @angular/non-existent`));
+    });
+
+    it('should support a custom NPM registry', async () => {
+      const {repo, instance, releaseConfig} =
+          setupReleaseActionForTesting(TestAction, baseReleaseTrains);
+      const {version, branchName} = baseReleaseTrains.next;
+      const tagName = version.format();
+      const customRegistryUrl = 'https://custom-npm-registry.google.com';
+
+      repo.expectBranchRequest(branchName, 'STAGING_SHA')
+          .expectCommitRequest('STAGING_SHA', `release: cut the v${version} release`)
+          .expectTagToBeCreated(tagName, 'STAGING_SHA')
+          .expectReleaseToBeCreated(`v${version}`, tagName);
+
+      // Set up a custom NPM registry.
+      releaseConfig.publishRegistry = customRegistryUrl;
+
+      await instance.testBuildAndPublish(version, branchName, 'latest');
+
+      expect(npm.runNpmPublish).toHaveBeenCalledTimes(2);
+      expect(npm.runNpmPublish)
+          .toHaveBeenCalledWith(`${testTmpDir}/dist/pkg1`, 'latest', customRegistryUrl);
+      expect(npm.runNpmPublish)
+          .toHaveBeenCalledWith(`${testTmpDir}/dist/pkg2`, 'latest', customRegistryUrl);
     });
   });
 

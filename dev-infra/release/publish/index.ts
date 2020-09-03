@@ -8,24 +8,16 @@
 
 import {ListChoiceOptions, prompt} from 'inquirer';
 
-import {fetchActiveReleaseTrainBranches, getVersionOfBranch, GithubRepoWithApi, nextBranchName, ReleaseTrain} from '../../pr/merge/defaults/branches';
 import {GithubConfig} from '../../utils/config';
 import {error, info, log, red, yellow} from '../../utils/console';
 import {GitClient} from '../../utils/git/index';
 import {ReleaseConfig} from '../config';
+import {ActiveReleaseTrains, fetchActiveReleaseTrains} from '../versioning/release-trains';
+import {GithubRepoWithApi} from '../versioning/version-branches';
 
 import {ReleaseAction} from './actions';
 import {FatalReleaseActionError, UserAbortedReleaseActionError} from './actions-error';
 import {actions} from './actions/index';
-
-export interface ActiveReleaseTrains {
-  /** Latest non-prerelease release-train (i.e. for the patch branch). */
-  latest: ReleaseTrain;
-  /** Release-train in the `next` phase (i.e. for the master branch). */
-  next: ReleaseTrain;
-  /** Release-train currently in the release-candidate/feature-freeze phase. */
-  releaseCandidate: ReleaseTrain|null;
-}
 
 export enum CompletionState {
   SUCCESS,
@@ -36,13 +28,6 @@ export enum CompletionState {
 export class ReleaseTool {
   /** Client for interacting with the Github API and the local Git command. */
   private _git = new GitClient(this._githubToken, {github: this._github}, this._projectRoot);
-
-  /** Describing the Github repository which should be released. */
-  private _repo: GithubRepoWithApi = {
-    owner: this._github.owner,
-    name: this._github.name,
-    api: this._git.github
-  };
 
   constructor(
       protected _config: ReleaseConfig, protected _github: GithubConfig,
@@ -58,7 +43,9 @@ export class ReleaseTool {
 
     this._verifyNoUncommittedChanges();
 
-    const releaseTrains = await this._getActiveReleaseTrains();
+    const {owner, name} = this._github;
+    const repo: GithubRepoWithApi = {owner, name, api: this._git.github};
+    const releaseTrains = await fetchActiveReleaseTrains(repo);
     const action = await this._promptForReleaseAction(releaseTrains);
     const previousGitBranchOrRevision = this._git.getCurrentBranchOrRevision();
 
@@ -105,15 +92,6 @@ export class ReleaseTool {
     });
 
     return releaseAction;
-  }
-
-  /** Gets the currently active release-trains for the configured project. */
-  private async _getActiveReleaseTrains(): Promise<ActiveReleaseTrains> {
-    const nextVersion = await getVersionOfBranch(this._repo, nextBranchName);
-    const nextReleaseTrain: ReleaseTrain = {version: nextVersion, branchName: nextBranchName};
-    const {latest, releaseCandidate} =
-        await fetchActiveReleaseTrainBranches(this._repo, nextVersion);
-    return {latest, releaseCandidate, next: nextReleaseTrain};
   }
 
   /** Verifies that there are no uncommitted changes in the project. */

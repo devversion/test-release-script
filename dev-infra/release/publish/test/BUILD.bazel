@@ -10,6 +10,7 @@ ts_library(
     deps = [
         "//dev-infra/release/config",
         "//dev-infra/release/publish",
+        "//dev-infra/release/versioning",
         "//dev-infra/utils",
         "@npm//@types/jasmine",
         "@npm//@types/minimist",

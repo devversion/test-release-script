@@ -73,8 +73,8 @@ describe('cut stable action', () => {
     await expectStagingAndPublishWithCherryPick(action, '11.0.x', '11.0.0', 'latest');
     expect(npm.setNpmTagForPackage).toHaveBeenCalledTimes(2);
     expect(npm.setNpmTagForPackage)
-        .toHaveBeenCalledWith('@angular/pkg1', 'v10-lts', matchesVersion('10.0.3'));
+        .toHaveBeenCalledWith('@angular/pkg1', 'v10-lts', matchesVersion('10.0.3'), undefined);
     expect(npm.setNpmTagForPackage)
-        .toHaveBeenCalledWith('@angular/pkg2', 'v10-lts', matchesVersion('10.0.3'));
+        .toHaveBeenCalledWith('@angular/pkg2', 'v10-lts', matchesVersion('10.0.3'), undefined);
   });
 });

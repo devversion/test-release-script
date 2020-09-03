@@ -8,9 +8,9 @@
 
 import * as semver from 'semver';
 
-import {getLtsNpmDistTagOfMajor} from '../../../pr/merge/defaults/lts-branch';
+import {getLtsNpmDistTagOfMajor} from '../../versioning/long-term-support';
+import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {ReleaseAction} from '../actions';
-import {ActiveReleaseTrains} from '../index';
 
 /**
  * Release action that cuts a stable version for the current release-train in the release

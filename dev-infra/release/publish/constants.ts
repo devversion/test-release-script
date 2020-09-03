@@ -12,5 +12,5 @@ export const changelogPath = 'CHANGELOG.md';
 /** Project-relative path for the "package.json" file. */
 export const packageJsonPath = 'package.json';
 
-/** Default interval to check whether a pull request has been merged. */
+/** Default interval in milliseconds to check whether a pull request has been merged. */
 export const waitForPullRequestInterval = 10000;

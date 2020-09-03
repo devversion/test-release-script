@@ -74,12 +74,7 @@ export class GithubClient extends Octokit {
  */
 type GraphQLQueryObject = Parameters<typeof query>[1];
 
-/**
- * A client for interacting with Github's GraphQL API.
- *
- * This class is intentionally not exported as it should always be access/used via a
- * _GithubClient instance.
- */
+/** A client for interacting with Github's GraphQL API. */
 class GithubGraphqlClient {
   /** The Github GraphQL (v4) API. */
   private graqhql = graphql;

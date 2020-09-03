@@ -9,10 +9,10 @@
 import {ListChoiceOptions, prompt} from 'inquirer';
 import * as semver from 'semver';
 
-import {computeLtsEndDateOfMajor, ltsNpmDistTagRegex} from '../../../pr/merge/defaults/lts-branch';
+import {fetchLongTermSupportBranchesFromNpm} from '../../versioning/long-term-support';
+import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {ReleaseAction} from '../actions';
 import {semverInc} from '../inc-semver';
-import {ActiveReleaseTrains} from '../index';
 
 /** Interface describing an LTS version branch. */
 interface LtsBranch {
@@ -46,14 +46,14 @@ export class CutLongTermSupportPatchAction extends ReleaseAction {
 
   /** Prompts the user to select an LTS branch for which a patch should but cut. */
   private async _promptForTargetLtsBranch(): Promise<LtsBranch> {
-    const {active, inactive} = await this._findLongTermSupportBranchesFromNpm();
+    const {active, inactive} = await fetchLongTermSupportBranchesFromNpm(this.config);
     const activeBranchChoices = active.map(branch => this._getChoiceForLtsBranch(branch));
 
     // If there are inactive LTS branches, we allow them to be selected. In some situations,
     // patch releases are still cut for inactive LTS branches. e.g. when the LTS duration
     // has been increased due to exceptional events ()
     if (inactive.length !== 0) {
-      activeBranchChoices.push({name: 'Inactive old LTS versions (not recommended)', value: null});
+      activeBranchChoices.push({name: 'Inactive LTS versions (not recommended)', value: null});
     }
 
     const {activeLtsBranch, inactiveLtsBranch} =
@@ -77,41 +77,7 @@ export class CutLongTermSupportPatchAction extends ReleaseAction {
 
   /** Gets an inquirer choice for the given LTS branch. */
   private _getChoiceForLtsBranch(branch: LtsBranch): ListChoiceOptions {
-    return {name: `V${branch.version.major} (from ${branch.name})`, value: branch};
-  }
-
-  /** Finds all long-term support branches published to NPM. */
-  private async _findLongTermSupportBranchesFromNpm() {
-    const {'dist-tags': distTags, time} = await this.fetchPackageFromNpmRegistry();
-    const today = new Date();
-    const active: LtsBranch[] = [];
-    const inactive: LtsBranch[] = [];
-
-    // Iterate through the NPM package information and determine active/inactive LTS versions
-    // w/ branches. We assume that a LTS tagged version in NPM corresponds to the most recent
-    // minor of a major version (i.e. we assume there are no outdated LTS NPM dist tags).
-    for (const npmDistTag in distTags) {
-      if (ltsNpmDistTagRegex.test(npmDistTag)) {
-        const version = semver.parse(distTags[npmDistTag])!;
-        const branchName = `${version.major}.${version.minor}.x`;
-        const majorReleaseDate = new Date(time[`${version.major}.0.0`]);
-        const ltsEndDate = computeLtsEndDateOfMajor(majorReleaseDate);
-        const ltsBranch = {name: branchName, version, npmDistTag};
-        // Depending on whether the LTS phase is still active, add the branch
-        // the list of active or inactive LTS branches.
-        if (today <= ltsEndDate) {
-          active.push(ltsBranch);
-        } else {
-          inactive.push(ltsBranch);
-        }
-      }
-    }
-
-    // Sort LTS branches in descending order. i.e. most recent ones first.
-    active.sort((a, b) => semver.rcompare(a.version, b.version));
-    inactive.sort((a, b) => semver.rcompare(a.version, b.version));
-
-    return {active, inactive};
+    return {name: `v${branch.version.major} (from ${branch.name})`, value: branch};
   }
 
   static async isActive(active: ActiveReleaseTrains) {

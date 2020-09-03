@@ -7,7 +7,6 @@
  */
 
 import {promises as fs} from 'fs';
-import fetch, {Response} from 'node-fetch';
 import * as Ora from 'ora';
 import {join} from 'path';
 import * as semver from 'semver';
@@ -16,12 +15,12 @@ import {error, green, info, promptConfirm, red, yellow} from '../../utils/consol
 import {getListCommitsInBranchUrl, getRepositoryGitUrl} from '../../utils/git/github-urls';
 import {GitClient} from '../../utils/git/index';
 import {BuiltPackage, ReleaseConfig} from '../config';
+import {ActiveReleaseTrains} from '../versioning/release-trains';
 
 import {FatalReleaseActionError, UserAbortedReleaseActionError} from './actions-error';
 import {getCommitMessageForRelease, getReleaseNoteCherryPickCommitMessage} from './commit-message';
 import {changelogPath, packageJsonPath, waitForPullRequestInterval} from './constants';
 import {findOwnedForksOfRepoQuery} from './graphql-queries';
-import {ActiveReleaseTrains} from './index';
 import {runNpmPublish, setNpmTagForPackage} from './npm-publish';
 import {getPullRequestState} from './pull-request-state';
 import {getDefaultExtractReleaseNotesPattern, getLocalChangelogFilePath} from './release-notes';
@@ -42,13 +41,6 @@ export interface PullRequest {
   fork: GithubRepo;
   /** Branch name in the fork that defines this pull request. */
   forkBranch: string;
-}
-
-/** Type describing an NPM package fetched from the registry. */
-export interface NpmPackageInfo {
-  'versions': {[name: string]: undefined|object};
-  'dist-tags': {[tagName: string]: string|undefined};
-  'time': {[name: string]: string};
 }
 
 /** Constructor type for a instantiating a release action */
@@ -81,8 +73,6 @@ export abstract class ReleaseAction {
 
   /** Cached found fork of the configured project. */
   private _cachedForkRepo: GithubRepo|null = null;
-  /** Cached representative NPM package information. */
-  private _cachedNpmPackageResponse: Promise<Response>|null = null;
 
   constructor(
       protected active: ActiveReleaseTrains, protected git: GitClient,
@@ -338,7 +328,8 @@ export abstract class ReleaseAction {
         {...this.git.remoteParams, path: '/' + changelogPath, ref: containingBranch});
     const branchChangelog = Buffer.from(data.content, 'base64').toString();
     let releaseNotes = this._extractReleaseNotesForVersion(branchChangelog, version);
-    // If no release notes could be extracted, exit and indicate the failure.
+    // If no release notes could be extracted, return "false" so that the caller
+    // can tell that changelog prepending failed.
     if (releaseNotes === null) {
       return false;
     }
@@ -361,22 +352,6 @@ export abstract class ReleaseAction {
     this.git.run(['checkout', 'FETCH_HEAD', '--detach']);
   }
 
-  /** Fetches the configured representative NPM package from the NPM registry. */
-  protected async fetchPackageFromNpmRegistry(): Promise<NpmPackageInfo> {
-    // The release tool publishes all packages together, in a monorepo scheme,
-    // so a single NPM package can be used as the source of truth.
-    this._cachedNpmPackageResponse = this._cachedNpmPackageResponse ??
-        fetch(`https://registry.npmjs.org/${this.config.npmPackages[0]}`);
-    return (await this._cachedNpmPackageResponse).json();
-  }
-
-  /** Whether the current version in the `next` branch is published. */
-  protected async isNextPublishedOnNpm() {
-    const {versions} = await this.fetchPackageFromNpmRegistry();
-    return versions[this.active.next.version.format()] !== undefined;
-  }
-
-
   /**
    * Creates a commit for the specified files with the given message.
    * @param message Message for the created commit
@@ -387,12 +362,12 @@ export abstract class ReleaseAction {
   }
 
   /**
-   * Creates a cherry-pick commit for the release notes of a version that have
-   * been pushed to a given branch.
+   * Creates a cherry-pick commit for the release notes of the specified version that
+   * has been pushed to the given branch.
    * @returns a boolean indicating whether the commit has been created successfully.
    */
-  protected async createCherryPickReleaseNotesCommit(version: semver.SemVer, branchName: string):
-      Promise<boolean> {
+  protected async createCherryPickReleaseNotesCommitFrom(
+      version: semver.SemVer, branchName: string): Promise<boolean> {
     const commitMessage = getReleaseNoteCherryPickCommitMessage(version);
 
     // Fetch, extract and prepend the release notes to the local changelog. If that is not
@@ -444,7 +419,7 @@ export abstract class ReleaseAction {
   /** Sets the specified NPM dist tag for all packages to the given version. */
   protected async setNpmDistTagForPackages(npmDistTag: string, version: semver.SemVer) {
     for (const packageName of this.config.npmPackages) {
-      setNpmTagForPackage(packageName, npmDistTag, version);
+      setNpmTagForPackage(packageName, npmDistTag, version, this.config.publishRegistry);
     }
     info(green(`  ✓   Set "${npmDistTag}" NPM dist tag for all packages to v${version}.`));
   }
@@ -464,7 +439,7 @@ export abstract class ReleaseAction {
 
     // Cherry-pick the release notes into the current branch. If it fails,
     // ask the user to manually copy the release notes into the next branch.
-    if (!await this.createCherryPickReleaseNotesCommit(newVersion, stagingBranch)) {
+    if (!await this.createCherryPickReleaseNotesCommitFrom(newVersion, stagingBranch)) {
       error(yellow(`  ✘   Could not cherry-pick release notes for v${newVersion}.`));
       error(
           yellow(`      Please copy the release notes manually into the "${nextBranch}" branch.`));
@@ -527,25 +502,14 @@ export abstract class ReleaseAction {
     // Checkout the publish branch and build the release packages.
     await this.checkoutUpstreamBranch(publishBranch);
 
-    const packages = await this.config.buildPackages();
-    if (packages === null) {
-      error(red(`  ✘   Could not build release output.`));
-      throw new FatalReleaseActionError();
-    } else {
-      info(green(`  ✓   Release output built for packages.`));
-    }
+    // Build the release packages.
+    const builtPackages = await this._buildPackages();
 
     // Create a Github release for the new version.
     await this._createGithubReleaseForVersion(newVersion, versionBumpCommitSha);
 
-    // Walk through all configured NPM packages, and look for their
-    // associated built package in order to publish it to NPM.
-    for (const pkgName of this.config.npmPackages) {
-      const builtPackage = packages.find(n => n.name === pkgName);
-      if (builtPackage === undefined) {
-        error(red(`  ✘   Could not find release output for "${pkgName}".`));
-        throw new FatalReleaseActionError();
-      }
+    // Walk through all built packages and publish them to NPM.
+    for (const builtPackage of builtPackages) {
       await this._publishBuiltPackageToNpm(builtPackage, npmDistTag);
     }
 
@@ -556,13 +520,34 @@ export abstract class ReleaseAction {
   private _publishBuiltPackageToNpm(pkg: BuiltPackage, npmDistTag: string) {
     info(green(`  ⭮   Publishing "${pkg.name}"..`));
 
-    if (!runNpmPublish(pkg.outputPath, npmDistTag)) {
+    if (!runNpmPublish(pkg.outputPath, npmDistTag, this.config.publishRegistry)) {
       error(red(`  ✘   An error occurred while publishing "${pkg.name}".`));
       error(red(`      Please check the terminal output above and reach out to dev-infra.`));
       throw new FatalReleaseActionError();
     }
 
     info(green(`  ✓   Successfully published "${pkg.name}"`));
+  }
+
+  /** Builds all packages and errors if configured NPM packages are missing. */
+  private async _buildPackages(): Promise<BuiltPackage[]> {
+    const packages = await this.config.buildPackages();
+    if (packages === null) {
+      error(red(`  ✘   Could not build release output.`));
+      throw new FatalReleaseActionError();
+    } else {
+      info(green(`  ✓   Release output built for packages.`));
+    }
+
+    const missingPackages =
+        this.config.npmPackages.filter(pkgName => !packages.find(b => b.name === pkgName));
+
+    if (missingPackages.length > 0) {
+      error(red(`  ✘   Release output has not been built for the following packages:`));
+      missingPackages.forEach(pkgName => error(red(`      - ${pkgName}`)));
+      throw new FatalReleaseActionError();
+    }
+    return packages;
   }
 
   /** Checks whether the given commit represents a staging commit for the specified version. */

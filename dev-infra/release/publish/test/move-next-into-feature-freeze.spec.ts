@@ -122,7 +122,7 @@ describe('move next into feature-freeze action', () => {
     expect(releaseConfig.buildPackages).toHaveBeenCalledTimes(1);
     expect(releaseConfig.generateReleaseNotesForHead).toHaveBeenCalledTimes(1);
     expect(npm.runNpmPublish).toHaveBeenCalledTimes(2);
-    expect(npm.runNpmPublish).toHaveBeenCalledWith(`${testTmpDir}/dist/pkg1`, 'next');
-    expect(npm.runNpmPublish).toHaveBeenCalledWith(`${testTmpDir}/dist/pkg2`, 'next');
-  });
+    expect(npm.runNpmPublish).toHaveBeenCalledWith(`${testTmpDir}/dist/pkg1`, 'next', undefined);
+    expect(npm.runNpmPublish).toHaveBeenCalledWith(`${testTmpDir}/dist/pkg2`, 'next', undefined);
+  }
 });

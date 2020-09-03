@@ -11,28 +11,16 @@ import {join} from 'path';
 
 import {CutNextPrereleaseAction} from '../actions/cut-next-prerelease';
 import {packageJsonPath} from '../constants';
-import {ActiveReleaseTrains} from '../index';
 
-import {expectStagingAndPublishWithCherryPick, expectStagingAndPublishWithoutCherryPick, fakeNpmPackageQueryRequest, parse, setupReleaseActionForTesting} from './test-utils';
+import {expectStagingAndPublishWithCherryPick, expectStagingAndPublishWithoutCherryPick, parse, setupReleaseActionForTesting} from './test-utils';
 
 describe('cut next pre-release action', () => {
-  function create(active: ActiveReleaseTrains, isNextPublishedToNpm = true) {
-    // The version in the `next` branch should appear as published already. This
-    // is the standard case. i.e. the version is incremented and then published.
-    // There is also an exception for this release action if the version is not
-    // published yet. See the `CutNextPrereleaseAction` for more details.
-    fakeNpmPackageQueryRequest(
-        {versions: {[active.next.version.format()]: isNextPublishedToNpm || undefined}});
-
-    return setupReleaseActionForTesting(CutNextPrereleaseAction, active);
-  }
-
   it('should always be active regardless of release-trains', async () => {
     expect(await CutNextPrereleaseAction.isActive()).toBe(true);
   });
 
   it('should cut a pre-release for the next branch if there is no FF/RC branch', async () => {
-    const action = create({
+    const action = setupReleaseActionForTesting(CutNextPrereleaseAction, {
       releaseCandidate: null,
       next: {branchName: 'master', version: parse('10.2.0-next.0')},
       latest: {branchName: '10.1.x', version: parse('10.1.2')},
@@ -49,13 +37,13 @@ describe('cut next pre-release action', () => {
   // still needs all the staging work (e.g. changelog). We special-case this by not incrementing
   // the version if the version in the next branch has not been published yet.
   it('should not bump version if current next version has not been published', async () => {
-    const action = create(
-        {
+    const action = setupReleaseActionForTesting(
+        CutNextPrereleaseAction, {
           releaseCandidate: null,
           next: {branchName: 'master', version: parse('10.2.0-next.0')},
           latest: {branchName: '10.1.x', version: parse('10.1.0')},
         },
-        false);
+        /* isNextPublishedToNpm */ false);
 
     await expectStagingAndPublishWithoutCherryPick(action, 'master', '10.2.0-next.0', 'next');
 
@@ -66,7 +54,7 @@ describe('cut next pre-release action', () => {
 
   describe('with active feature-freeze', () => {
     it('should create a proper new version and select correct branch', async () => {
-      const action = create({
+      const action = setupReleaseActionForTesting(CutNextPrereleaseAction, {
         releaseCandidate: {branchName: '10.1.x', version: parse('10.1.0-next.4')},
         next: {branchName: 'master', version: parse('10.2.0-next.0')},
         latest: {branchName: '10.0.x', version: parse('10.0.2')},
@@ -78,7 +66,7 @@ describe('cut next pre-release action', () => {
 
   describe('with active release-candidate', () => {
     it('should create a proper new version and select correct branch', async () => {
-      const action = create({
+      const action = setupReleaseActionForTesting(CutNextPrereleaseAction, {
         releaseCandidate: {branchName: '10.1.x', version: parse('10.1.0-rc.0')},
         next: {branchName: 'master', version: parse('10.2.0-next.0')},
         latest: {branchName: '10.0.x', version: parse('10.0.2')},

@@ -9,10 +9,10 @@
 import * as semver from 'semver';
 
 import {green, info, yellow} from '../../../utils/console';
+import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {ReleaseAction} from '../actions';
 import {getCommitMessageForNextBranchMajorSwitch} from '../commit-message';
 import {packageJsonPath} from '../constants';
-import {ActiveReleaseTrains} from '../index';
 
 /**
  * Release action that configures the active next release-train to be for a major
