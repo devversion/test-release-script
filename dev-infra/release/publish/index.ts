@@ -12,6 +12,7 @@ import {GithubConfig} from '../../utils/config';
 import {error, info, log, red, yellow} from '../../utils/console';
 import {GitClient} from '../../utils/git/index';
 import {ReleaseConfig} from '../config';
+import {printActiveReleaseTrains} from '../versioning/print-active-trains';
 import {ActiveReleaseTrains, fetchActiveReleaseTrains} from '../versioning/release-trains';
 import {GithubRepoWithApi} from '../versioning/version-branches';
 
@@ -46,6 +47,11 @@ export class ReleaseTool {
     const {owner, name} = this._github;
     const repo: GithubRepoWithApi = {owner, name, api: this._git.github};
     const releaseTrains = await fetchActiveReleaseTrains(repo);
+
+    // Print the active release trains so that the caretaker can access
+    // the current project branching state without switching context.
+    await printActiveReleaseTrains(releaseTrains, this._config);
+
     const action = await this._promptForReleaseAction(releaseTrains);
     const previousGitBranchOrRevision = this._git.getCurrentBranchOrRevision();
 
