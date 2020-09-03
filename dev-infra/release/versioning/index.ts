@@ -6,5 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-export * from './labels';
-export * from './lts-branch';
+export * from './release-trains';
+export * from './long-term-support';
+export * from './version-branches';
+export * from './npm-registry';

@@ -6,12 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {ReleaseConfig} from '../../../release/config/index';
+import {fetchActiveReleaseTrains, GithubRepoWithApi, isVersionBranch, nextBranchName} from '../../../release/versioning';
 import {GithubConfig} from '../../../utils/config';
 import {GithubClient} from '../../../utils/git/github';
 import {TargetLabel} from '../config';
 import {InvalidTargetBranchError, InvalidTargetLabelError} from '../target-label';
 
-import {fetchActiveReleaseTrainBranches, getVersionOfBranch, GithubRepoWithApi, isReleaseTrainBranch, nextBranchName} from './branches';
 import {assertActiveLtsBranch} from './lts-branch';
 
 /**
@@ -19,13 +20,20 @@ import {assertActiveLtsBranch} from './lts-branch';
  * organization-wide labeling and branching semantics as outlined in the specification.
  *
  * https://docs.google.com/document/d/197kVillDwx-RZtSVOBtPb4BBIAw0E9RT3q3v6DZkykU
+ *
+ * @param api Instance of an authenticated Github client.
+ * @param githubConfig Configuration for the Github remote. Used as Git remote
+ *   for the release train branches.
+ * @param releaseConfig Configuration for the release packages. Used to fetch
+ *   NPM version data when LTS version branches are validated.
  */
 export async function getDefaultTargetLabelConfiguration(
-    api: GithubClient, github: GithubConfig, npmPackageName: string): Promise<TargetLabel[]> {
-  const repo: GithubRepoWithApi = {owner: github.owner, name: github.name, api};
-  const nextVersion = await getVersionOfBranch(repo, nextBranchName);
+    api: GithubClient, githubConfig: GithubConfig,
+    releaseConfig: ReleaseConfig): Promise<TargetLabel[]> {
+  const repo = {owner: githubConfig.owner, name: githubConfig.name, api};
+  const {latest, releaseCandidate, next} = await fetchActiveReleaseTrains(repo);
+  const nextVersion = next.version;
   const hasNextMajorTrain = nextVersion.minor === 0;
-  const {latest, releaseCandidate} = await fetchActiveReleaseTrainBranches(repo, nextVersion);
 
   return [
     {
@@ -99,7 +107,7 @@ export async function getDefaultTargetLabelConfiguration(
       // commonly diverge quickly. This makes cherry-picking not an option for LTS changes.
       pattern: 'target: lts',
       branches: async githubTargetBranch => {
-        if (!isReleaseTrainBranch(githubTargetBranch)) {
+        if (!isVersionBranch(githubTargetBranch)) {
           throw new InvalidTargetBranchError(
               `PR cannot be merged as it does not target a long-term support ` +
               `branch: "${githubTargetBranch}"`);
@@ -115,7 +123,7 @@ export async function getDefaultTargetLabelConfiguration(
               `branch. Consider changing the label to "target: rc" if this is intentional.`);
         }
         // Assert that the selected branch is an active LTS branch.
-        await assertActiveLtsBranch(repo, npmPackageName, githubTargetBranch);
+        await assertActiveLtsBranch(repo, releaseConfig, githubTargetBranch);
         return [githubTargetBranch];
       },
     },

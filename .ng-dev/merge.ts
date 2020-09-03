@@ -16,7 +16,7 @@ export const merge: DevInfraMergeConfig['merge'] = async api => {
     commitMessageFixupLabel: 'commit message fixup',
     // We can pick any of the NPM packages as we are in a monorepo where all packages are
     // published together with the same version and branching.
-    labels: await getDefaultTargetLabelConfiguration(api, github, release.npmPackages[0]),
+    labels: await getDefaultTargetLabelConfiguration(api, github, release),
     requiredBaseCommits: {
       // PRs that target either `master` or the patch branch, need to be rebased
       // on top of the latest commit message validation fix.
