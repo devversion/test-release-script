@@ -10,6 +10,7 @@ import {readFileSync} from 'fs';
 import {join} from 'path';
 import * as semver from 'semver';
 
+import {getBranchPushMatcher} from '../../../utils/testing';
 import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {ReleaseAction} from '../actions';
 import {actions} from '../actions/index';
@@ -17,7 +18,6 @@ import {changelogPath} from '../constants';
 import * as npm from '../npm-publish';
 
 import {getChangelogForVersion, getTestingMocksForReleaseAction, parse, setupReleaseActionForTesting, testTmpDir} from './test-utils';
-import {getBranchPushMatcher} from './virtual-git-matchers';
 
 describe('common release action logic', () => {
   const baseReleaseTrains: ActiveReleaseTrains = {

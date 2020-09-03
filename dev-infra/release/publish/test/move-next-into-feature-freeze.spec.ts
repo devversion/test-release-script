@@ -6,12 +6,12 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {getBranchPushMatcher} from '../../../utils/testing';
 import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {MoveNextIntoFeatureFreezeAction} from '../actions/move-next-into-feature-freeze';
 import * as npm from '../npm-publish';
 
 import {getChangelogForVersion, parse, setupReleaseActionForTesting, testTmpDir} from './test-utils';
-import {getBranchPushMatcher} from './virtual-git-matchers';
 
 describe('move next into feature-freeze action', () => {
   it('should not activate if a feature-freeze release-train is active', async () => {

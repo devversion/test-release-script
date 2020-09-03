@@ -13,6 +13,7 @@ import * as semver from 'semver';
 
 import {GithubConfig} from '../../../utils/config';
 import * as console from '../../../utils/console';
+import {getBranchPushMatcher, VirtualGitClient} from '../../../utils/testing';
 import {ReleaseConfig} from '../../config/index';
 import {_npmPackageInfoCache, NpmPackageInfo} from '../../versioning/npm-registry';
 import {ActiveReleaseTrains} from '../../versioning/release-trains';
@@ -21,8 +22,6 @@ import * as constants from '../constants';
 import * as npm from '../npm-publish';
 
 import {GithubTestingRepo} from './github-api-testing';
-import {VirtualGitClient} from './virtual-git-client';
-import {getBranchPushMatcher} from './virtual-git-matchers';
 
 /**
  * Temporary directory which will be used as project directory in tests. Note that

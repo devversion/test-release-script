@@ -6,9 +6,10 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {getBranchPushMatcher} from '../../../utils/testing';
 import {ConfigureNextAsMajorAction} from '../actions/configure-next-as-major';
+
 import {parse, setupReleaseActionForTesting} from './test-utils';
-import {getBranchPushMatcher} from './virtual-git-matchers';
 
 describe('configure next as major action', () => {
   it('should be active if the next branch is for a minor', async () => {

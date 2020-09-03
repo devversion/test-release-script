@@ -6,14 +6,15 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {GithubTestingRepo} from './github-api-testing';
+import {GithubRepo} from '../git/github';
+
 import {Commit} from './virtual-git-client';
 
 /** Interface describing the match parameters for a virtual Git client push. */
 interface BranchPushMatchParameters {
-  targetRepo: GithubTestingRepo;
+  targetRepo: GithubRepo;
   targetBranch: string;
-  baseRepo: GithubTestingRepo;
+  baseRepo: GithubRepo;
   baseBranch: string;
   expectedCommits: Commit[]|jasmine.ArrayContaining<Commit>;
 }

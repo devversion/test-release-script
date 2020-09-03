@@ -9,7 +9,7 @@
 import {SpawnSyncOptions, SpawnSyncReturns} from 'child_process';
 import * as parseArgs from 'minimist';
 
-import {GitClient} from '../../../utils/git/index';
+import {GitClient} from '../git/index';
 
 /** Type describing a Git head. */
 interface GitHead {
