@@ -13,8 +13,8 @@ export const release: ReleaseConfig = {
     return new Promise(resolve => {
       setTimeout(() => {
         resolve([
-          {name: "@test/animations", outputPath: join(__dirname, '../dist/animations')},
-          {name: "@test/bazel", outputPath: join(__dirname, '../dist/bazel')},
+          {name: "@angular/animations", outputPath: join(__dirname, '../dist/animations')},
+          {name: "@angular/bazel", outputPath: join(__dirname, '../dist/bazel')},
         ]);
       }, 5000);
     });
