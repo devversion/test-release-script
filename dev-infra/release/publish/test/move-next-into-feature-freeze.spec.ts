@@ -7,7 +7,8 @@
  */
 
 import {getBranchPushMatcher} from '../../../utils/testing';
-import {ActiveReleaseTrains} from '../../versioning/release-trains';
+import {ActiveReleaseTrains} from '../../versioning/active-release-trains';
+import {ReleaseTrain} from '../../versioning/release-trains';
 import {MoveNextIntoFeatureFreezeAction} from '../actions/move-next-into-feature-freeze';
 import * as npm from '../npm-publish';
 
@@ -16,26 +17,26 @@ import {getChangelogForVersion, parse, setupReleaseActionForTesting, testTmpDir}
 describe('move next into feature-freeze action', () => {
   it('should not activate if a feature-freeze release-train is active', async () => {
     expect(await MoveNextIntoFeatureFreezeAction.isActive({
-      releaseCandidate: {branchName: '10.1.x', version: parse('10.1.0-next.1')},
-      next: {branchName: 'master', version: parse('10.2.0-next.0')},
-      latest: {branchName: '10.0.x', version: parse('10.0.3')},
+      releaseCandidate: new ReleaseTrain('10.1.x', parse('10.1.0-next.1')),
+      next: new ReleaseTrain('master', parse('10.2.0-next.0')),
+      latest: new ReleaseTrain('10.0.x', parse('10.0.3')),
     })).toBe(false);
   });
 
   it('should not activate if release-candidate release-train is active', async () => {
     expect(await MoveNextIntoFeatureFreezeAction.isActive({
       // No longer in feature-freeze but in release-candidate phase.
-      releaseCandidate: {branchName: '10.1.x', version: parse('10.1.0-rc.0')},
-      next: {branchName: 'master', version: parse('10.2.0-next.0')},
-      latest: {branchName: '10.0.x', version: parse('10.0.3')},
+      releaseCandidate: new ReleaseTrain('10.1.x', parse('10.1.0-rc.0')),
+      next: new ReleaseTrain('master', parse('10.2.0-next.0')),
+      latest: new ReleaseTrain('10.0.x', parse('10.0.3')),
     })).toBe(false);
   });
 
   it('should activate if no FF/RC release-train is active', async () => {
     expect(await MoveNextIntoFeatureFreezeAction.isActive({
       releaseCandidate: null,
-      next: {branchName: 'master', version: parse('10.1.0-next.0')},
-      latest: {branchName: '10.0.x', version: parse('10.0.3')},
+      next: new ReleaseTrain('master', parse('10.1.0-next.0')),
+      latest: new ReleaseTrain('10.0.x', parse('10.0.3')),
     })).toBe(true);
   });
 
@@ -43,8 +44,8 @@ describe('move next into feature-freeze action', () => {
     await expectVersionAndBranchToBeCreated(
         {
           releaseCandidate: null,
-          next: {branchName: 'master', version: parse('10.2.0-next.0')},
-          latest: {branchName: '10.0.x', version: parse('10.0.3')},
+          next: new ReleaseTrain('master', parse('10.2.0-next.0')),
+          latest: new ReleaseTrain('10.0.x', parse('10.0.3')),
         },
         /* isNextPublishedToNpm */ true, '10.3.0-next.0', '10.2.0-next.1', '10.2.x');
   });
@@ -53,8 +54,8 @@ describe('move next into feature-freeze action', () => {
     await expectVersionAndBranchToBeCreated(
         {
           releaseCandidate: null,
-          next: {branchName: 'master', version: parse('10.2.0-next.0')},
-          latest: {branchName: '10.0.x', version: parse('10.0.3')},
+          next: new ReleaseTrain('master', parse('10.2.0-next.0')),
+          latest: new ReleaseTrain('10.0.x', parse('10.0.3')),
         },
         /* isNextPublishedToNpm */ false, '10.3.0-next.0', '10.2.0-next.0', '10.2.x');
   });

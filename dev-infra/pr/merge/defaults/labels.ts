@@ -7,7 +7,7 @@
  */
 
 import {ReleaseConfig} from '../../../release/config/index';
-import {fetchActiveReleaseTrains, GithubRepoWithApi, isVersionBranch, nextBranchName} from '../../../release/versioning';
+import {fetchActiveReleaseTrains, isVersionBranch, nextBranchName} from '../../../release/versioning';
 import {GithubConfig} from '../../../utils/config';
 import {GithubClient} from '../../../utils/git/github';
 import {TargetLabel} from '../config';
@@ -32,8 +32,6 @@ export async function getDefaultTargetLabelConfiguration(
     releaseConfig: ReleaseConfig): Promise<TargetLabel[]> {
   const repo = {owner: githubConfig.owner, name: githubConfig.name, api};
   const {latest, releaseCandidate, next} = await fetchActiveReleaseTrains(repo);
-  const nextVersion = next.version;
-  const hasNextMajorTrain = nextVersion.minor === 0;
 
   return [
     {
@@ -41,7 +39,7 @@ export async function getDefaultTargetLabelConfiguration(
       branches: () => {
         // If `next` is currently not designated to be a major version, we do not
         // allow merging of PRs with `target: major`.
-        if (!hasNextMajorTrain) {
+        if (!next.isMajor) {
           throw new InvalidTargetLabelError(
               `Unable to merge pull request. The "${nextBranchName}" branch will be ` +
               `released as a minor version.`);

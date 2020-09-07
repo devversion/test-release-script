@@ -10,10 +10,18 @@ import * as semver from 'semver';
 
 import {ReleaseConfig} from '../config/index';
 
-import {fetchProjectNpmPackageInfo, NpmPackageInfo} from './npm-registry';
+import {fetchProjectNpmPackageInfo} from './npm-registry';
+
+/** Interface describing determined LTS branches. */
+export interface LtsBranches {
+  /** List of active LTS version branches. */
+  active: LtsBranch[],
+      /** List of inactive LTS version branches. */
+      inactive: LtsBranch[],
+}
 
 /** Interface describing an LTS version branch. */
-interface LtsBranch {
+export interface LtsBranch {
   /** Name of the branch. */
   name: string;
   /** Most recent version for the given LTS branch. */
@@ -38,12 +46,8 @@ export const majorActiveTermSupportDuration = 12;
 export const ltsNpmDistTagRegex = /^v(\d+)-lts$/;
 
 /** Finds all long-term support release trains from the specified NPM package. */
-export async function fetchLongTermSupportBranchesFromNpm(config: ReleaseConfig): Promise<{
-  /** List of active LTS version branches. */
-  active: LtsBranch[],
-  /** List of inactive LTS version branches. */
-  inactive: LtsBranch[],
-}> {
+export async function fetchLongTermSupportBranchesFromNpm(config: ReleaseConfig):
+    Promise<LtsBranches> {
   const {'dist-tags': distTags, time} = await fetchProjectNpmPackageInfo(config);
   const today = new Date();
   const active: LtsBranch[] = [];

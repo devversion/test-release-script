@@ -16,14 +16,15 @@ import {buildReleaseOutput} from './index';
 
 /** Command line options for building a release. */
 export interface ReleaseBuildOptions {
-  json: boolean|undefined;
+  json: boolean;
 }
 
 /** Yargs command builder for configuring the `ng-dev release build` command. */
 function builder(argv: Argv): Argv<ReleaseBuildOptions> {
   return argv.option('json', {
     type: 'boolean',
-    description: 'Whether the built packages should be printed to stdout as JSON.'
+    description: 'Whether the built packages should be printed to stdout as JSON.',
+    default: false,
   });
 }
 

@@ -12,8 +12,8 @@ import {GithubConfig} from '../../utils/config';
 import {error, info, log, red, yellow} from '../../utils/console';
 import {GitClient} from '../../utils/git/index';
 import {ReleaseConfig} from '../config';
+import {ActiveReleaseTrains, fetchActiveReleaseTrains, nextBranchName} from '../versioning/active-release-trains';
 import {printActiveReleaseTrains} from '../versioning/print-active-trains';
-import {ActiveReleaseTrains, fetchActiveReleaseTrains} from '../versioning/release-trains';
 import {GithubRepoWithApi} from '../versioning/version-branches';
 
 import {ReleaseAction} from './actions';
@@ -42,7 +42,9 @@ export class ReleaseTool {
     log(yellow('--------------------------------------------'));
     log();
 
-    this._verifyNoUncommittedChanges();
+    if (!await this._verifyNoUncommittedChanges() || !await this._verifyRunningFromNextBranch()) {
+      return CompletionState.FATAL_ERROR;
+    }
 
     const {owner, name} = this._github;
     const repo: GithubRepoWithApi = {owner, name, api: this._git.github};
@@ -100,13 +102,35 @@ export class ReleaseTool {
     return releaseAction;
   }
 
-  /** Verifies that there are no uncommitted changes in the project. */
-  private _verifyNoUncommittedChanges() {
+  /**
+   * Verifies that there are no uncommitted changes in the project.
+   * @returns a boolean indicating success or failure.
+   */
+  private async _verifyNoUncommittedChanges(): Promise<boolean> {
     if (this._git.hasUncommittedChanges()) {
       error(
           red(`  ✘   There are changes which are not committed and should be ` +
               `discarded.`));
-      process.exit(1);
+      //   return false;
     }
+    return true;
+  }
+
+  /**
+   * Verifies that the next branch from the configured repository is checked out.
+   * @returns a boolean indicating success or failure.
+   */
+  private async _verifyRunningFromNextBranch(): Promise<boolean> {
+    const headSha = this._git.run(['rev-parse', 'HEAD']).stdout.trim();
+    const {data} =
+        await this._git.github.repos.getBranch({...this._git.remoteParams, branch: nextBranchName});
+
+    if (headSha !== data.commit.sha) {
+      error(red(`  ✘   Running release tool from an outdated local branch.`));
+      error(red(`      Please make sure you are running from the "${nextBranchName}" branch.`));
+      // TODO: Remove for testing.
+      // return false;
+    }
+    return true;
   }
 }

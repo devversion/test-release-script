@@ -8,8 +8,8 @@
 
 import * as semver from 'semver';
 
+import {ActiveReleaseTrains} from '../../versioning/active-release-trains';
 import {getLtsNpmDistTagOfMajor} from '../../versioning/long-term-support';
-import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {ReleaseAction} from '../actions';
 
 /**
@@ -27,18 +27,20 @@ export class CutStableAction extends ReleaseAction {
   async perform() {
     const {branchName} = this.active.releaseCandidate!;
     const newVersion = this._newVersion;
-    const isMajor = newVersion.minor === 0 && newVersion.patch === 0;
+    const isNewMajor = this.active.releaseCandidate?.isMajor;
+
 
     const {id} = await this.checkoutBranchAndStageVersion(newVersion, branchName);
 
     await this.waitForPullRequestToBeMerged(id);
     await this.buildAndPublish(newVersion, branchName, 'latest');
 
-    // If a major version is published and becomes the "latest" release-train, we need to
-    // set the LTS npm dist tag for the previous latest release-train (the current patch).
-    if (isMajor) {
+    // If a new major version is published and becomes the "latest" release-train, we need
+    // to set the LTS npm dist tag for the previous latest release-train (the current patch).
+    if (isNewMajor) {
       const previousPatchVersion = this.active.latest.version;
       const ltsTagForPatch = getLtsNpmDistTagOfMajor(previousPatchVersion.major);
+      // TODO: How does this behave for old patch branches with different packages?
       await this.setNpmDistTagForPackages(ltsTagForPatch, previousPatchVersion);
     }
 

@@ -69,13 +69,13 @@ export class GithubClient extends Octokit {
 }
 
 /**
- * An object representation of a GraphQL Query to be used as a response type and to generate
- * a GraphQL query string.
+ * An object representation of a GraphQL Query to be used as a response type and
+ * to generate a GraphQL query string.
  */
-type GraphQLQueryObject = Parameters<typeof query>[1];
+export type GraphQLQueryObject = Parameters<typeof query>[1];
 
 /** A client for interacting with Github's GraphQL API. */
-class GithubGraphqlClient {
+export class GithubGraphqlClient {
   /** The Github GraphQL (v4) API. */
   private graqhql = graphql;
 

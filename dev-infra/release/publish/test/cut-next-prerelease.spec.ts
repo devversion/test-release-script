@@ -9,6 +9,7 @@
 import {readFileSync} from 'fs';
 import {join} from 'path';
 
+import {ReleaseTrain} from '../../versioning/release-trains';
 import {CutNextPrereleaseAction} from '../actions/cut-next-prerelease';
 import {packageJsonPath} from '../constants';
 
@@ -22,8 +23,8 @@ describe('cut next pre-release action', () => {
   it('should cut a pre-release for the next branch if there is no FF/RC branch', async () => {
     const action = setupReleaseActionForTesting(CutNextPrereleaseAction, {
       releaseCandidate: null,
-      next: {branchName: 'master', version: parse('10.2.0-next.0')},
-      latest: {branchName: '10.1.x', version: parse('10.1.2')},
+      next: new ReleaseTrain('master', parse('10.2.0-next.0')),
+      latest: new ReleaseTrain('10.1.x', parse('10.1.2')),
     });
 
     await expectStagingAndPublishWithoutCherryPick(action, 'master', '10.2.0-next.1', 'next');
@@ -40,8 +41,8 @@ describe('cut next pre-release action', () => {
     const action = setupReleaseActionForTesting(
         CutNextPrereleaseAction, {
           releaseCandidate: null,
-          next: {branchName: 'master', version: parse('10.2.0-next.0')},
-          latest: {branchName: '10.1.x', version: parse('10.1.0')},
+          next: new ReleaseTrain('master', parse('10.2.0-next.0')),
+          latest: new ReleaseTrain('10.1.x', parse('10.1.0')),
         },
         /* isNextPublishedToNpm */ false);
 
@@ -55,9 +56,9 @@ describe('cut next pre-release action', () => {
   describe('with active feature-freeze', () => {
     it('should create a proper new version and select correct branch', async () => {
       const action = setupReleaseActionForTesting(CutNextPrereleaseAction, {
-        releaseCandidate: {branchName: '10.1.x', version: parse('10.1.0-next.4')},
-        next: {branchName: 'master', version: parse('10.2.0-next.0')},
-        latest: {branchName: '10.0.x', version: parse('10.0.2')},
+        releaseCandidate: new ReleaseTrain('10.1.x', parse('10.1.0-next.4')),
+        next: new ReleaseTrain('master', parse('10.2.0-next.0')),
+        latest: new ReleaseTrain('10.0.x', parse('10.0.2')),
       });
 
       await expectStagingAndPublishWithCherryPick(action, '10.1.x', '10.1.0-next.5', 'next');
@@ -67,9 +68,9 @@ describe('cut next pre-release action', () => {
   describe('with active release-candidate', () => {
     it('should create a proper new version and select correct branch', async () => {
       const action = setupReleaseActionForTesting(CutNextPrereleaseAction, {
-        releaseCandidate: {branchName: '10.1.x', version: parse('10.1.0-rc.0')},
-        next: {branchName: 'master', version: parse('10.2.0-next.0')},
-        latest: {branchName: '10.0.x', version: parse('10.0.2')},
+        releaseCandidate: new ReleaseTrain('10.1.x', parse('10.1.0-rc.0')),
+        next: new ReleaseTrain('master', parse('10.2.0-next.0')),
+        latest: new ReleaseTrain('10.0.x', parse('10.0.2')),
       });
 
       await expectStagingAndPublishWithCherryPick(action, '10.1.x', '10.1.0-rc.1', 'next');

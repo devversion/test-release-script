@@ -9,8 +9,9 @@
 import {blue, bold, info} from '../../utils/console';
 import {ReleaseConfig} from '../config/index';
 
+import {ActiveReleaseTrains} from './active-release-trains';
+import {fetchLongTermSupportBranchesFromNpm} from './long-term-support';
 import {isVersionPublishedToNpm} from './npm-registry';
-import {ActiveReleaseTrains} from './release-trains';
 
 /**
  * Prints the active release trains to the console.
@@ -20,23 +21,22 @@ import {ActiveReleaseTrains} from './release-trains';
 export async function printActiveReleaseTrains(
     active: ActiveReleaseTrains, config: ReleaseConfig): Promise<void> {
   const {releaseCandidate, next, latest} = active;
-  const isNextMajor = next.version.minor === 0 && next.version.patch === 0;
   const isNextPublishedToNpm = await isVersionPublishedToNpm(next.version, config);
-  const nextTrainType = isNextMajor ? 'major' : 'minor';
+  const nextTrainType = next.isMajor ? 'major' : 'minor';
+  const ltsBranches = await fetchLongTermSupportBranchesFromNpm(config);
 
   info();
-  info(blue('Currently active release branches in the project:'));
-  // If there is a release-train currently in feature-freeze/release-candidate
-  // phase, print it's corresponding Git branch and the target release type.
+  info(blue('Current version branches in the project:'));
+
+  // Print information for release trains in the feature-freeze/release-candidate phase.
   if (releaseCandidate !== null) {
     const rcVersion = releaseCandidate.version;
-    const isRcForMajor = rcVersion.minor === 0 && rcVersion.patch === 0;
-    const rcTrainType = isRcForMajor ? 'major' : 'minor';
+    const rcTrainType = releaseCandidate.isMajor ? 'major' : 'minor';
     const rcTrainPhase =
         rcVersion.prerelease[0] === 'next' ? 'feature-freeze' : 'release-candidate';
     info(
         ` • ${bold(releaseCandidate.branchName)} contains changes for an upcoming ` +
-        `${rcTrainType}, currently in ${rcTrainPhase} phase.`);
+        `${rcTrainType} that is currently in ${bold(rcTrainPhase)} phase.`);
     info(`   Most recent pre-release for this branch is "${bold(`v${rcVersion}`)}".`);
   }
 
@@ -56,7 +56,25 @@ export async function printActiveReleaseTrains(
   } else {
     info(
         `   Version is currently set to "${bold(`v${next.version}`)}", but has not been ` +
-        ` published.`);
+        `published yet.`);
   }
+
+  // If no release-train in release-candidate of feature-freeze phase is active,
+  // we print a message as last bullet point to make this clear.
+  if (releaseCandidate === null) {
+    info(` • No release-candidate or feature-freeze branch currently active.`);
+  }
+
+  info();
+  info(blue(`Current active LTS version branches:`));
+
+  // Print all active LTS branches (each branch as own bullet point).
+  if (ltsBranches.active.length !== 0) {
+    for (const ltsBranch of ltsBranches.active) {
+      info(` • ${bold(ltsBranch.name)} is currently in active long-term support phase.`);
+      info(`   Most recent patch version for this branch is "${bold(`v${ltsBranch.version}`)}".`);
+    }
+  }
+
   info();
 }

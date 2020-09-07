@@ -11,26 +11,27 @@ import {join} from 'path';
 import * as semver from 'semver';
 
 import {getBranchPushMatcher} from '../../../utils/testing';
-import {ActiveReleaseTrains} from '../../versioning/release-trains';
+import {ActiveReleaseTrains} from '../../versioning/active-release-trains';
+import {ReleaseTrain} from '../../versioning/release-trains';
 import {ReleaseAction} from '../actions';
 import {actions} from '../actions/index';
 import {changelogPath} from '../constants';
 import * as npm from '../npm-publish';
 
-import {getChangelogForVersion, getTestingMocksForReleaseAction, parse, setupReleaseActionForTesting, testTmpDir} from './test-utils';
+import {fakeNpmPackageQueryRequest, getChangelogForVersion, getTestingMocksForReleaseAction, parse, setupReleaseActionForTesting, testTmpDir} from './test-utils';
 
 describe('common release action logic', () => {
   const baseReleaseTrains: ActiveReleaseTrains = {
     releaseCandidate: null,
-    next: {branchName: 'master', version: parse('10.1.0-next.0')},
-    latest: {branchName: '10.0.x', version: parse('10.0.1')},
+    next: new ReleaseTrain('master', parse('10.1.0-next.0')),
+    latest: new ReleaseTrain('10.0.x', parse('10.0.1')),
   };
 
   describe('version computation', async () => {
     const testReleaseTrain: ActiveReleaseTrains = {
-      releaseCandidate: {branchName: '10.1.x', version: parse('10.1.0-next.3')},
-      next: {branchName: 'master', version: parse('10.2.0-next.0')},
-      latest: {branchName: '10.0.x', version: parse('10.0.1')},
+      releaseCandidate: new ReleaseTrain('10.1.x', parse('10.1.0-next.3')),
+      next: new ReleaseTrain('master', parse('10.2.0-next.0')),
+      latest: new ReleaseTrain('10.0.x', parse('10.0.1')),
     };
 
     it('should not modify release train versions and cause invalid other actions', async () => {
@@ -48,7 +49,7 @@ describe('common release action logic', () => {
         `Cut a first release-candidate for the feature-freeze branch (v10.1.0-rc.0).`,
         `Cut a new patch release for the "10.0.x" branch (v10.0.2).`,
         `Cut a new next pre-release for the "10.1.x" branch (v10.1.0-next.4).`,
-        `Cut a new release for an active LTS branch.`
+        `Cut a new release for an active LTS branch (0 active).`
       ]);
     });
   });

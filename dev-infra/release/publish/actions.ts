@@ -11,11 +11,11 @@ import * as Ora from 'ora';
 import {join} from 'path';
 import * as semver from 'semver';
 
-import {error, green, info, promptConfirm, red, yellow} from '../../utils/console';
+import {debug, error, green, info, promptConfirm, red, yellow} from '../../utils/console';
 import {getListCommitsInBranchUrl, getRepositoryGitUrl} from '../../utils/git/github-urls';
 import {GitClient} from '../../utils/git/index';
 import {BuiltPackage, ReleaseConfig} from '../config';
-import {ActiveReleaseTrains} from '../versioning/release-trains';
+import {ActiveReleaseTrains} from '../versioning/active-release-trains';
 
 import {FatalReleaseActionError, UserAbortedReleaseActionError} from './actions-error';
 import {getCommitMessageForRelease, getReleaseNoteCherryPickCommitMessage} from './commit-message';
@@ -300,15 +300,19 @@ export abstract class ReleaseAction {
    */
   protected async waitForPullRequestToBeMerged(id: number, interval = waitForPullRequestInterval):
       Promise<void> {
-    const spinner = Ora({indent: 4}).start(`Waiting for pull request #${id} to be merged.`);
     return new Promise((resolve, reject) => {
+      debug(`Waiting for pull request #${id} to be merged.`);
+
+      const spinner = Ora({indent: 4}).start(`Waiting for pull request #${id} to be merged.`);
       const intervalId = setInterval(async () => {
         const prState = await getPullRequestState(this.git, id);
         if (prState === 'merged') {
+          debug(`Pull request #${id} has been merged.`);
           spinner.succeed('Pull request has been merged!');
           clearInterval(intervalId);
           resolve();
         } else if (prState === 'closed') {
+          debug(`Pull request #${id} has been closed.`);
           spinner.fail('Pull request has been closed!');
           clearInterval(intervalId);
           reject(new UserAbortedReleaseActionError());
@@ -419,7 +423,7 @@ export abstract class ReleaseAction {
   /** Sets the specified NPM dist tag for all packages to the given version. */
   protected async setNpmDistTagForPackages(npmDistTag: string, version: semver.SemVer) {
     for (const packageName of this.config.npmPackages) {
-      setNpmTagForPackage(packageName, npmDistTag, version, this.config.publishRegistry);
+      await setNpmTagForPackage(packageName, npmDistTag, version, this.config.publishRegistry);
     }
     info(green(`  ✓   Set "${npmDistTag}" NPM dist tag for all packages to v${version}.`));
   }
@@ -466,12 +470,10 @@ export abstract class ReleaseAction {
   private async _createGithubReleaseForVersion(
       newVersion: semver.SemVer, versionBumpCommitSha: string) {
     const tagName = newVersion.format();
-    await this.git.github.git.createTag({
+    await this.git.github.git.createRef({
       ...this.git.remoteParams,
-      tag: tagName,
-      object: versionBumpCommitSha,
-      type: 'commit',
-      message: `Tag for the v${newVersion} release`,
+      ref: `refs/tags/${tagName}`,
+      sha: versionBumpCommitSha,
     });
     info(green(`  ✓   Tagged v${newVersion} release upstream.`));
 
@@ -517,16 +519,20 @@ export abstract class ReleaseAction {
   }
 
   /** Publishes the given built package to NPM with the specified NPM dist tag. */
-  private _publishBuiltPackageToNpm(pkg: BuiltPackage, npmDistTag: string) {
-    info(green(`  ⭮   Publishing "${pkg.name}"..`));
+  private async _publishBuiltPackageToNpm(pkg: BuiltPackage, npmDistTag: string) {
+    debug(`Starting publish of "${pkg.name}".`);
 
-    if (!runNpmPublish(pkg.outputPath, npmDistTag, this.config.publishRegistry)) {
-      error(red(`  ✘   An error occurred while publishing "${pkg.name}".`));
-      error(red(`      Please check the terminal output above and reach out to dev-infra.`));
+    const spinner = Ora({indent: 4}).start(`Publishing "${pkg.name}"`);
+    const success = await runNpmPublish(pkg.outputPath, npmDistTag, this.config.publishRegistry);
+
+    if (!success) {
+      spinner.fail(`  ✘   An error occurred while publishing "${pkg.name}".`);
+      debug(`An error occurred while publishing "${pkg.name}". Check log output above.`);
       throw new FatalReleaseActionError();
     }
 
-    info(green(`  ✓   Successfully published "${pkg.name}"`));
+    spinner.succeed(`Published "${pkg.name}"`);
+    debug(`Successfully published "${pkg.name}"`);
   }
 
   /** Builds all packages and errors if configured NPM packages are missing. */

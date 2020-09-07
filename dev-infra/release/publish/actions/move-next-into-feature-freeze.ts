@@ -9,11 +9,11 @@
 import * as semver from 'semver';
 
 import {error, green, info, yellow} from '../../../utils/console';
-import {ActiveReleaseTrains} from '../../versioning/release-trains';
+import {ActiveReleaseTrains} from '../../versioning/active-release-trains';
+import {computeNewPrereleaseVersionForNext} from '../../versioning/next-prerelease-version';
 import {ReleaseAction} from '../actions';
 import {getCommitMessageForExceptionalNextVersionBump} from '../commit-message';
 import {packageJsonPath} from '../constants';
-import {computeNewVersionForNext} from './cut-next-prerelease';
 
 /**
  * Release action that moves the next release-train into the feature-freeze phase. This means
@@ -21,7 +21,7 @@ import {computeNewVersionForNext} from './cut-next-prerelease';
  * cut indicating the started feature-freeze.
  */
 export class MoveNextIntoFeatureFreezeAction extends ReleaseAction {
-  private _newVersion = computeNewVersionForNext(this.active, this.config);
+  private _newVersion = computeNewPrereleaseVersionForNext(this.active, this.config);
 
   async getDescription() {
     const {branchName} = this.active.next;

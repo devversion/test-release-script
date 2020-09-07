@@ -9,10 +9,10 @@
 import {ListChoiceOptions, prompt} from 'inquirer';
 import * as semver from 'semver';
 
+import {ActiveReleaseTrains} from '../../versioning/active-release-trains';
+import {semverInc} from '../../versioning/inc-semver';
 import {fetchLongTermSupportBranchesFromNpm} from '../../versioning/long-term-support';
-import {ActiveReleaseTrains} from '../../versioning/release-trains';
 import {ReleaseAction} from '../actions';
-import {semverInc} from '../inc-semver';
 
 /** Interface describing an LTS version branch. */
 interface LtsBranch {
@@ -30,8 +30,12 @@ interface LtsBranch {
  * patch version, but also needs to be cherry-picked into the next development branch.
  */
 export class CutLongTermSupportPatchAction extends ReleaseAction {
+  /** Promise resolving an object describing long-term support branches. */
+  ltsBranches = fetchLongTermSupportBranchesFromNpm(this.config);
+
   async getDescription() {
-    return `Cut a new release for an active LTS branch.`;
+    const {active} = await this.ltsBranches;
+    return `Cut a new release for an active LTS branch (${active.length} active).`;
   }
 
   async perform() {
@@ -46,7 +50,7 @@ export class CutLongTermSupportPatchAction extends ReleaseAction {
 
   /** Prompts the user to select an LTS branch for which a patch should but cut. */
   private async _promptForTargetLtsBranch(): Promise<LtsBranch> {
-    const {active, inactive} = await fetchLongTermSupportBranchesFromNpm(this.config);
+    const {active, inactive} = await this.ltsBranches;
     const activeBranchChoices = active.map(branch => this._getChoiceForLtsBranch(branch));
 
     // If there are inactive LTS branches, we allow them to be selected. In some situations,
@@ -81,9 +85,9 @@ export class CutLongTermSupportPatchAction extends ReleaseAction {
   }
 
   static async isActive(active: ActiveReleaseTrains) {
-    // LTS patch versions can be only cut if there are release trains in LTS phase. We
-    // fetch/determine LTS branches later on action perform as it is rather expensive to
-    // find those, so the option is always selectable.
+    // LTS patch versions can be only cut if there are release trains in LTS phase.
+    // This action is always selectable as we support publishing of old LTS branches,
+    // and have prompt for selecting an LTS branch when the action performs.
     return true;
   }
 }

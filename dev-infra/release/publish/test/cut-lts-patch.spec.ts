@@ -7,46 +7,70 @@
  */
 
 import {fetchLongTermSupportBranchesFromNpm} from '../../versioning/long-term-support';
+import {ReleaseTrain} from '../../versioning/release-trains';
 import {CutLongTermSupportPatchAction} from '../actions/cut-lts-patch';
 
-import {expectStagingAndPublishWithCherryPick, fakeNpmPackageQueryRequest, getTestingMocksForReleaseAction, matchesVersion, parse, setupReleaseActionForTesting} from './test-utils';
+import {expectStagingAndPublishWithCherryPick, fakeNpmPackageQueryRequest, getTestingMocksForReleaseAction, matchesVersion, parse, setupReleaseActionForTesting, testTmpDir} from './test-utils';
 
 describe('cut a LTS patch action', () => {
   it('should be active', async () => {
     expect(await CutLongTermSupportPatchAction.isActive({
       releaseCandidate: null,
-      next: {branchName: 'master', version: parse('10.1.0-next.3')},
-      latest: {branchName: '10.0.x', version: parse('10.0.3')},
+      next: new ReleaseTrain('master', parse('10.1.0-next.3')),
+      latest: new ReleaseTrain('10.0.x', parse('10.0.3')),
     })).toBe(true);
   });
 
   it('should be active if there is a feature-freeze train', async () => {
     expect(await CutLongTermSupportPatchAction.isActive({
-      releaseCandidate: {branchName: '10.1.x', version: parse('10.1.0-next.3')},
-      next: {branchName: 'master', version: parse('10.2.0-next.3')},
-      latest: {branchName: '10.0.x', version: parse('10.0.3')},
+      releaseCandidate: new ReleaseTrain('10.1.x', parse('10.1.0-next.3')),
+      next: new ReleaseTrain('master', parse('10.2.0-next.3')),
+      latest: new ReleaseTrain('10.0.x', parse('10.0.3')),
     })).toBe(true);
   });
 
   it('should be active if there is a release-candidate train', async () => {
     expect(await CutLongTermSupportPatchAction.isActive({
-      releaseCandidate: {branchName: '10.1.x', version: parse('10.1.0-rc.0')},
-      next: {branchName: 'master', version: parse('10.2.0-next.3')},
-      latest: {branchName: '10.0.x', version: parse('10.0.3')},
+      releaseCandidate: new ReleaseTrain('10.1.x', parse('10.1.0-rc.0')),
+      next: new ReleaseTrain('master', parse('10.2.0-next.3')),
+      latest: new ReleaseTrain('10.0.x', parse('10.0.3')),
     })).toBe(true);
   });
 
   it('should compute proper new version and select correct branch', async () => {
     const action = setupReleaseActionForTesting(CutLongTermSupportPatchAction, {
       releaseCandidate: null,
-      next: {branchName: 'master', version: parse('10.1.0-next.3')},
-      latest: {branchName: '10.0.x', version: parse('10.0.2')},
+      next: new ReleaseTrain('master', parse('10.1.0-next.3')),
+      latest: new ReleaseTrain('10.0.x', parse('10.0.2')),
     });
 
     spyOn<any>(action.instance, '_promptForTargetLtsBranch')
         .and.resolveTo({name: '9.2.x', version: parse('9.2.4'), npmDistTag: 'v9-lts'});
 
     await expectStagingAndPublishWithCherryPick(action, '9.2.x', '9.2.5', 'v9-lts');
+  });
+
+  it('should include number of active LTS branches in action description', async () => {
+    const {releaseConfig, gitClient} = getTestingMocksForReleaseAction();
+    const activeReleaseTrains = {
+      releaseCandidate: null,
+      next: new ReleaseTrain('master', parse('10.1.0-next.3')),
+      latest: new ReleaseTrain('10.0.x', parse('10.0.2')),
+    };
+
+    fakeNpmPackageQueryRequest(releaseConfig.npmPackages[0], {
+      'dist-tags': {'v9-lts': '9.1.2', 'v8-lts': '8.2.2'},
+      'time': {
+        '9.0.0': new Date().toISOString(),
+        '8.0.0': new Date().toISOString(),
+      },
+    });
+
+    const action = new CutLongTermSupportPatchAction(
+        activeReleaseTrains, gitClient, releaseConfig, testTmpDir);
+
+    expect(await action.getDescription())
+        .toEqual(`Cut a new release for an active LTS branch (2 active).`);
   });
 
   it('should properly determine active and inactive LTS branches', async () => {

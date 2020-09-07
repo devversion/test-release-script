@@ -9,7 +9,7 @@
 import * as semver from 'semver';
 
 import {green, info, yellow} from '../../../utils/console';
-import {ActiveReleaseTrains} from '../../versioning/release-trains';
+import {ActiveReleaseTrains} from '../../versioning/active-release-trains';
 import {ReleaseAction} from '../actions';
 import {getCommitMessageForNextBranchMajorSwitch} from '../commit-message';
 import {packageJsonPath} from '../constants';
@@ -45,10 +45,9 @@ export class ConfigureNextAsMajorAction extends ReleaseAction {
   }
 
   static async isActive(active: ActiveReleaseTrains) {
-    const {minor, patch} = active.next.version;
     // The `next` branch can always be switched to a major version, unless it already
     // is targeting a new major. A major can contain minor changes, so we can always
     // change the target from a minor to a major.
-    return !(minor === 0 && patch === 0);
+    return !active.next.isMajor;
   }
 }
