@@ -1,3 +1,22 @@
+<a name="10.0.3"></a>
+## 10.0.3 (2020-09-07)
+
+
+### Bug Fixes
+
+* **core:** remove CollectionChangeRecord symbol ([#38668](https://github.com/angular/angular/issues/38668)) ([fdea180](https://github.com/angular/angular/commit/fdea180))
+* **core:** reset `tView` between tests in Ivy TestBed ([#38659](https://github.com/angular/angular/issues/38659)) ([44bb85a](https://github.com/angular/angular/commit/44bb85a)), closes [#38600](https://github.com/angular/angular/issues/38600)
+* **localize:** install `[@angular](https://github.com/angular)/localize` in `devDependencies` by default ([#38680](https://github.com/angular/angular/issues/38680)) ([50f4d8a](https://github.com/angular/angular/commit/50f4d8a)), closes [#38329](https://github.com/angular/angular/issues/38329)
+* **localize:** render context of translation file parse errors ([#38673](https://github.com/angular/angular/issues/38673)) ([5da1934](https://github.com/angular/angular/commit/5da1934)), closes [#38377](https://github.com/angular/angular/issues/38377)
+
+
+### BREAKING CHANGES
+
+* **core:** CollectionChangeRecord has been removed, use IterableChangeRecord
+instead
+
+
+
 <a name="11.0.0-next.0"></a>
 # 11.0.0-next.0 (2020-09-02)
 
