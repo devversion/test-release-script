@@ -42,6 +42,7 @@ describe('ng-dev release build', () => {
   it('should invoke configured build packages function', async () => {
     await invokeBuild();
     expect(buildPackages).toHaveBeenCalledTimes(1);
+    expect(process.exit).toHaveBeenCalledTimes(0);
   });
 
   it('should print built packages as JSON if `--json` is specified', async () => {
@@ -58,6 +59,7 @@ describe('ng-dev release build', () => {
       {name: '@angular/pkg1', outputPath: 'dist/pkg1'},
       {name: '@angular/pkg2', outputPath: 'dist/pkg2'}
     ]);
+    expect(process.exit).toHaveBeenCalledTimes(0);
   });
 
   it('should error if package has not been built', async () => {
@@ -72,5 +74,7 @@ describe('ng-dev release build', () => {
         .toHaveBeenCalledWith(
             jasmine.stringMatching(`Release output missing for the following packages`));
     expect(console.error).toHaveBeenCalledWith(jasmine.stringMatching(`- @angular/non-existent`));
+    expect(process.exit).toHaveBeenCalledTimes(1);
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 });
