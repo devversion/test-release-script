@@ -74,7 +74,7 @@ export class GithubTestingRepo {
 
   expectTagToBeCreated(tagName: string, sha: string): this {
     nock(this.repoApiUrl)
-        .post(`/git/tags`, b => b.tag === tagName && b.object === sha)
+        .post(`/git/refs`, b => b.ref === `refs/tags/${tagName}` && b.sha === sha)
         .reply(200, {});
     return this;
   }
