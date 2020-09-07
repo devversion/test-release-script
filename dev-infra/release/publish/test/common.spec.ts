@@ -12,13 +12,13 @@ import * as semver from 'semver';
 
 import {getBranchPushMatcher} from '../../../utils/testing';
 import {ActiveReleaseTrains} from '../../versioning/active-release-trains';
+import * as npm from '../../versioning/npm-publish';
 import {ReleaseTrain} from '../../versioning/release-trains';
 import {ReleaseAction} from '../actions';
 import {actions} from '../actions/index';
 import {changelogPath} from '../constants';
-import * as npm from '../npm-publish';
 
-import {fakeNpmPackageQueryRequest, getChangelogForVersion, getTestingMocksForReleaseAction, parse, setupReleaseActionForTesting, testTmpDir} from './test-utils';
+import {getChangelogForVersion, getTestingMocksForReleaseAction, parse, setupReleaseActionForTesting, testTmpDir} from './test-utils';
 
 describe('common release action logic', () => {
   const baseReleaseTrains: ActiveReleaseTrains = {
@@ -55,32 +55,6 @@ describe('common release action logic', () => {
   });
 
   describe('build and publishing', () => {
-    it('should error if package has not been built', async () => {
-      const {repo, instance, releaseConfig} =
-          setupReleaseActionForTesting(TestAction, baseReleaseTrains);
-      const {version, branchName} = baseReleaseTrains.next;
-      const tagName = version.format();
-
-      repo.expectBranchRequest(branchName, 'STAGING_SHA')
-          .expectCommitRequest('STAGING_SHA', `release: cut the v${version} release`)
-          .expectTagToBeCreated(tagName, 'STAGING_SHA')
-          .expectReleaseToBeCreated(`v${version}`, tagName);
-
-      // Set up a NPM package that is not built.
-      releaseConfig.npmPackages.push('@angular/non-existent');
-
-      spyOn(console, 'error');
-
-      await expectAsync(instance.testBuildAndPublish(version, branchName, 'latest'))
-          .toBeRejectedWithError();
-
-      expect(console.error).toHaveBeenCalledTimes(2);
-      expect(console.error)
-          .toHaveBeenCalledWith(jasmine.stringMatching(
-              `Release output has not been built for the following packages:`));
-      expect(console.error).toHaveBeenCalledWith(jasmine.stringMatching(`- @angular/non-existent`));
-    });
-
     it('should support a custom NPM registry', async () => {
       const {repo, instance, releaseConfig} =
           setupReleaseActionForTesting(TestAction, baseReleaseTrains);

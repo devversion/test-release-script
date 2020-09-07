@@ -8,9 +8,10 @@
 
 import {getBranchPushMatcher} from '../../../utils/testing';
 import {ActiveReleaseTrains} from '../../versioning/active-release-trains';
+import * as npm from '../../versioning/npm-publish';
 import {ReleaseTrain} from '../../versioning/release-trains';
 import {MoveNextIntoFeatureFreezeAction} from '../actions/move-next-into-feature-freeze';
-import * as npm from '../npm-publish';
+import * as externalCommands from '../external-commands';
 
 import {getChangelogForVersion, parse, setupReleaseActionForTesting, testTmpDir} from './test-utils';
 
@@ -138,7 +139,7 @@ describe('move next into feature-freeze action', () => {
             }),
             'Expected next release-train update branch be created in fork.');
 
-    expect(releaseConfig.buildPackages).toHaveBeenCalledTimes(1);
+    expect(externalCommands.invokeReleaseBuildCommand).toHaveBeenCalledTimes(1);
     expect(releaseConfig.generateReleaseNotesForHead).toHaveBeenCalledTimes(1);
     expect(npm.runNpmPublish).toHaveBeenCalledTimes(2);
     expect(npm.runNpmPublish).toHaveBeenCalledWith(`${testTmpDir}/dist/pkg1`, 'next', undefined);

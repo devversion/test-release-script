@@ -11,6 +11,7 @@ import * as semver from 'semver';
 import {ActiveReleaseTrains} from '../../versioning/active-release-trains';
 import {getLtsNpmDistTagOfMajor} from '../../versioning/long-term-support';
 import {ReleaseAction} from '../actions';
+import {invokeSetNpmDistCommand, invokeYarnInstallCommand} from '../external-commands';
 
 /**
  * Release action that cuts a stable version for the current release-train in the release
@@ -40,11 +41,24 @@ export class CutStableAction extends ReleaseAction {
     if (isNewMajor) {
       const previousPatchVersion = this.active.latest.version;
       const ltsTagForPatch = getLtsNpmDistTagOfMajor(previousPatchVersion.major);
-      // TODO: How does this behave for old patch branches with different packages?
-      await this.setNpmDistTagForPackages(ltsTagForPatch, previousPatchVersion);
+
+      // Instead of directly setting the NPM dist tags, we invoke the ng-dev command for
+      // setting the NPM dist tag to the specified version. We do this because release NPM
+      // packages could be different in the previous patch branch, and we want to set the
+      // LTS tag for all packages part of the last major. It would not be possible to set the
+      // NPM dist tag for new packages part of the released major, nor would it be acceptable
+      // to skip the LTS tag for packages which are no longer part of the new major.
+      await invokeYarnInstallCommand(this.projectDir);
+      await invokeSetNpmDistCommand(ltsTagForPatch, previousPatchVersion);
     }
 
     await this.cherryPickChangelogIntoNextBranch(newVersion, branchName);
+  }
+
+  /** Gets the new stable version of the release candidate release-train. */
+  private _computeNewVersion(): semver.SemVer {
+    const {version} = this.active.releaseCandidate!;
+    return semver.parse(`${version.major}.${version.minor}.${version.patch}`)!;
   }
 
   static async isActive(active: ActiveReleaseTrains) {
@@ -53,11 +67,5 @@ export class CutStableAction extends ReleaseAction {
     // feature-freeze phase into a stable version.
     return active.releaseCandidate !== null &&
         active.releaseCandidate.version.prerelease[0] === 'rc';
-  }
-
-  /** Gets the new stable version of the release candidate release-train. */
-  private _computeNewVersion(): semver.SemVer {
-    const {version} = this.active.releaseCandidate!;
-    return semver.parse(`${version.major}.${version.minor}.${version.patch}`)!;
   }
 }

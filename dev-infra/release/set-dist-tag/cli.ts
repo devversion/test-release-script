@@ -12,7 +12,7 @@ import {Arguments, Argv, CommandModule} from 'yargs';
 
 import {bold, debug, error, green, info, red} from '../../utils/console';
 import {getReleaseConfig} from '../config/index';
-import {setNpmTagForPackage} from '../publish/npm-publish';
+import {setNpmTagForPackage} from '../versioning/npm-publish';
 
 
 /** Command line options for setting a NPM dist tag. */

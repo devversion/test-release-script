@@ -8,7 +8,7 @@
 
 import {ReleaseTrain} from '../../versioning/release-trains';
 import {CutStableAction} from '../actions/cut-stable';
-import * as npm from '../npm-publish';
+import * as externalCommands from '../external-commands';
 
 import {expectStagingAndPublishWithCherryPick, matchesVersion, parse, setupReleaseActionForTesting} from './test-utils';
 
@@ -57,9 +57,8 @@ describe('cut stable action', () => {
       latest: new ReleaseTrain('10.0.x', parse('10.0.3')),
     });
 
-    spyOn(npm, 'setNpmTagForPackage');
     await expectStagingAndPublishWithCherryPick(action, '10.1.x', '10.1.0', 'latest');
-    expect(npm.setNpmTagForPackage).toHaveBeenCalledTimes(0);
+    expect(externalCommands.invokeSetNpmDistCommand).toHaveBeenCalledTimes(0);
   });
 
   it('should tag the previous latest release-train if a major has been cut', async () => {
@@ -70,12 +69,9 @@ describe('cut stable action', () => {
       latest: new ReleaseTrain('10.0.x', parse('10.0.3')),
     });
 
-    spyOn(npm, 'setNpmTagForPackage');
     await expectStagingAndPublishWithCherryPick(action, '11.0.x', '11.0.0', 'latest');
-    expect(npm.setNpmTagForPackage).toHaveBeenCalledTimes(2);
-    expect(npm.setNpmTagForPackage)
-        .toHaveBeenCalledWith('@angular/pkg1', 'v10-lts', matchesVersion('10.0.3'), undefined);
-    expect(npm.setNpmTagForPackage)
-        .toHaveBeenCalledWith('@angular/pkg2', 'v10-lts', matchesVersion('10.0.3'), undefined);
+    expect(externalCommands.invokeSetNpmDistCommand).toHaveBeenCalledTimes(1);
+    expect(externalCommands.invokeSetNpmDistCommand)
+        .toHaveBeenCalledWith('v10-lts', matchesVersion('10.0.3'));
   });
 });

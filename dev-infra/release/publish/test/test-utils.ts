@@ -16,10 +16,11 @@ import * as console from '../../../utils/console';
 import {getBranchPushMatcher, VirtualGitClient} from '../../../utils/testing';
 import {ReleaseConfig} from '../../config/index';
 import {ActiveReleaseTrains} from '../../versioning/active-release-trains';
+import * as npm from '../../versioning/npm-publish';
 import {_npmPackageInfoCache, NpmPackageInfo} from '../../versioning/npm-registry';
 import {ReleaseAction, ReleaseActionConstructor} from '../actions';
 import * as constants from '../constants';
-import * as npm from '../npm-publish';
+import * as externalCommands from '../external-commands';
 
 import {GithubTestingRepo} from './github-api-testing';
 
@@ -50,10 +51,9 @@ export function getTestingMocksForReleaseAction() {
       '@angular/pkg2',
     ],
     generateReleaseNotesForHead: jasmine.createSpy('generateReleaseNotesForHead').and.resolveTo(),
-    buildPackages: jasmine.createSpy('buildPackages').and.resolveTo([
-      {name: '@angular/pkg1', outputPath: `${testTmpDir}/dist/pkg1`},
-      {name: '@angular/pkg2', outputPath: `${testTmpDir}/dist/pkg2`}
-    ]),
+    buildPackages: () => {
+      throw Error('Not implemented');
+    },
   };
   return {githubConfig, gitClient, releaseConfig};
 }
@@ -88,8 +88,14 @@ export function setupReleaseActionForTesting<T extends ReleaseAction>(
   // just proceed with the release action.
   spyOn(console, 'promptConfirm').and.resolveTo(true);
 
-  // Fake the NPM publish command.
-  spyOn(npm, 'runNpmPublish').and.returnValue(true);
+  // Fake all external commands for the release tool.
+  spyOn(npm, 'runNpmPublish').and.resolveTo(true);
+  spyOn(externalCommands, 'invokeSetNpmDistCommand').and.resolveTo();
+  spyOn(externalCommands, 'invokeYarnInstallCommand').and.resolveTo();
+  spyOn(externalCommands, 'invokeReleaseBuildCommand').and.resolveTo([
+    {name: '@angular/pkg1', outputPath: `${testTmpDir}/dist/pkg1`},
+    {name: '@angular/pkg2', outputPath: `${testTmpDir}/dist/pkg2`}
+  ]);
 
   // Create an empty changelog and a `package.json` file so that file system
   // interactions with the project directory do not cause exceptions.
@@ -154,7 +160,7 @@ export async function expectStagingAndPublishWithoutCherryPick(
           }),
           'Expected release staging branch to be created in fork.');
 
-  expect(releaseConfig.buildPackages).toHaveBeenCalledTimes(1);
+  expect(externalCommands.invokeReleaseBuildCommand).toHaveBeenCalledTimes(1);
   expect(releaseConfig.generateReleaseNotesForHead).toHaveBeenCalledTimes(1);
   expect(npm.runNpmPublish).toHaveBeenCalledTimes(2);
   expect(npm.runNpmPublish)
@@ -222,7 +228,7 @@ export async function expectStagingAndPublishWithCherryPick(
           }),
           'Expected cherry-pick branch to be created in fork.');
 
-  expect(releaseConfig.buildPackages).toHaveBeenCalledTimes(1);
+  expect(externalCommands.invokeReleaseBuildCommand).toHaveBeenCalledTimes(1);
   expect(releaseConfig.generateReleaseNotesForHead).toHaveBeenCalledTimes(1);
   expect(npm.runNpmPublish).toHaveBeenCalledTimes(2);
   expect(npm.runNpmPublish)

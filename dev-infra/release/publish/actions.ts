@@ -11,17 +11,19 @@ import * as Ora from 'ora';
 import {join} from 'path';
 import * as semver from 'semver';
 
+import {spawnSilentWithDebugOutput} from '../../utils/child-process';
 import {debug, error, green, info, promptConfirm, red, yellow} from '../../utils/console';
 import {getListCommitsInBranchUrl, getRepositoryGitUrl} from '../../utils/git/github-urls';
 import {GitClient} from '../../utils/git/index';
 import {BuiltPackage, ReleaseConfig} from '../config';
 import {ActiveReleaseTrains} from '../versioning/active-release-trains';
+import {runNpmPublish} from '../versioning/npm-publish';
 
 import {FatalReleaseActionError, UserAbortedReleaseActionError} from './actions-error';
 import {getCommitMessageForRelease, getReleaseNoteCherryPickCommitMessage} from './commit-message';
 import {changelogPath, packageJsonPath, waitForPullRequestInterval} from './constants';
+import {invokeReleaseBuildCommand, invokeYarnInstallCommand} from './external-commands';
 import {findOwnedForksOfRepoQuery} from './graphql-queries';
-import {runNpmPublish, setNpmTagForPackage} from './npm-publish';
 import {getPullRequestState} from './pull-request-state';
 import {getDefaultExtractReleaseNotesPattern, getLocalChangelogFilePath} from './release-notes';
 
@@ -420,12 +422,24 @@ export abstract class ReleaseAction {
     return await this.stageVersionForBranchAndCreatePullRequest(newVersion, stagingBranch);
   }
 
-  /** Sets the specified NPM dist tag for all packages to the given version. */
-  protected async setNpmDistTagForPackages(npmDistTag: string, version: semver.SemVer) {
-    for (const packageName of this.config.npmPackages) {
-      await setNpmTagForPackage(packageName, npmDistTag, version, this.config.publishRegistry);
+  /**
+   * Installs dependencies in the configured project with the currently checked out
+   * revision. This is helpful when running `ng-dev` commands for older version branches.
+   */
+  protected async installDependencies() {
+    const spinner = Ora({indent: 4}).start('Installing project dependencies.');
+    const success = await spawnSilentWithDebugOutput(
+        'yarn', ['install', '--frozen-lockfile', '--non-interactive'],
+        {cwd: this.projectDir, shell: true});
+
+    if (success) {
+      debug(`Installed project dependencies.`);
+      spinner.succeed('Installed project dependencies.');
+    } else {
+      debug(`Failed installing project dependencies.`);
+      spinner.fail(`Failed installing project dependencies.`);
+      throw new FatalReleaseActionError();
     }
-    info(green(`  ✓   Set "${npmDistTag}" NPM dist tag for all packages to v${version}.`));
   }
 
   /**
@@ -504,8 +518,14 @@ export abstract class ReleaseAction {
     // Checkout the publish branch and build the release packages.
     await this.checkoutUpstreamBranch(publishBranch);
 
-    // Build the release packages.
-    const builtPackages = await this._buildPackages();
+    // Install the project dependencies for the publish branch, and then build the release
+    // packages. Note that we do not directly call the build packages function from the release
+    // config. We only want to build and publish packages that have been configured in the given
+    // publish branch. e.g. consider we publish patch version and a new package has been
+    // created in the `next` branch. The new package would not be part of the patch branch,
+    // so we cannot build and publish it.
+    await invokeYarnInstallCommand(this.projectDir);
+    const builtPackages = await invokeReleaseBuildCommand();
 
     // Create a Github release for the new version.
     await this._createGithubReleaseForVersion(newVersion, versionBumpCommitSha);

@@ -15,9 +15,9 @@ import {fetchProjectNpmPackageInfo} from './npm-registry';
 /** Interface describing determined LTS branches. */
 export interface LtsBranches {
   /** List of active LTS version branches. */
-  active: LtsBranch[],
-      /** List of inactive LTS version branches. */
-      inactive: LtsBranch[],
+  active: LtsBranch[];
+  /** List of inactive LTS version branches. */
+  inactive: LtsBranch[];
 }
 
 /** Interface describing an LTS version branch. */
