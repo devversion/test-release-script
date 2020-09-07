@@ -1,3 +1,14 @@
+<a name="10.0.7"></a>
+## 10.0.7 (2020-09-07)
+
+
+### BREAKING CHANGES
+
+* **core:** CollectionChangeRecord has been removed, use IterableChangeRecord
+instead
+
+
+
 <a name="10.0.6"></a>
 ## 10.0.6 (2020-09-07)
 
