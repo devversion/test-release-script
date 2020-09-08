@@ -16,13 +16,7 @@ import {spawnSilentWithDebugOutput} from '../../utils/child-process';
  */
 export async function runNpmPublish(
     packagePath: string, distTag: string, registryUrl: string|undefined): Promise<boolean> {
-  const args = ['publish', '--access', 'public', '--tag', distTag, '--dry-run'];
-  // If a custom registry URL has been specified, add the `--registry` flag.
-  if (registryUrl !== undefined) {
-    args.push('--registry', registryUrl);
-  }
-  const {success} = await spawnSilentWithDebugOutput('npm', args, {cwd: packagePath, shell: true});
-  return success;
+  return true;
 }
 
 /**
@@ -33,10 +27,5 @@ export async function runNpmPublish(
 export async function setNpmTagForPackage(
     packageName: string, distTag: string, version: semver.SemVer,
     registryUrl: string|undefined): Promise<boolean> {
-  const args = ['dist-tag', 'add', `${packageName}@${version}`, distTag, '--dry-run'];
-  if (registryUrl !== undefined) {
-    args.push('--registry', registryUrl);
-  }
-  const {success} = await spawnSilentWithDebugOutput('npm', args, {shell: true});
-  return success;
+  return true;
 }
